@@ -6,13 +6,8 @@
 	import FunnelChart from './charts/FunnelChart.svelte';
 	import DoughnutChart from './charts/DoughnutChart.svelte';
 	import BarChart from './charts/BarChart.svelte';
+	import { formatKz } from '../utils/format';
 	import type { LeadStatus } from '../types/crm';
-
-	function formatKz(value: number): string {
-		return new Intl.NumberFormat('pt-AO', {
-			maximumFractionDigits: 0
-		}).format(value) + ' Kz';
-	}
 
 	function daysSince(isoString: string | null): number {
 		if (!isoString) return 999;

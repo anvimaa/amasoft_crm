@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { crmStore } from '../stores/crm.svelte';
+	import { companyStore } from '../stores/company.svelte';
 	import { toast } from '../stores/toast.svelte';
 	import Icon from './Icon.svelte';
 	import type { RawClientData } from '../types/crm';
@@ -87,8 +88,36 @@
 			const text = await file.text();
 			const json = JSON.parse(text);
 
+			// Handle full CRM export format { company, team, leads }
+			if (json && typeof json === 'object' && !Array.isArray(json) && Array.isArray(json.leads)) {
+				if (json.company) {
+					companyStore.updateCompany(json.company);
+				}
+				if (json.team && Array.isArray(json.team)) {
+					for (const member of json.team) {
+						if (member.id && member.name) {
+							const existing = companyStore.getMemberById(member.id);
+							if (existing) {
+								companyStore.updateMember(member.id, member);
+							} else {
+								companyStore.addMember({ name: member.name, role: member.role || '', email: member.email || '', phone: member.phone || '', isActive: member.isActive !== false });
+							}
+						}
+					}
+				}
+				const leadsData = json.leads;
+				if (!Array.isArray(leadsData) || leadsData.length === 0) {
+					parseError = 'O ficheiro contém dados CRM mas a lista de leads está vazia.';
+					return;
+				}
+				parsedData = leadsData as RawClientData[];
+				parseError = null;
+				return;
+			}
+
+			// Handle plain array format (clientes.json or original export)
 			if (!Array.isArray(json)) {
-				parseError = 'O ficheiro JSON deve conter uma lista (array) de empresas.';
+				parseError = 'O ficheiro JSON deve conter uma lista (array) de empresas ou uma exportação completa do CRM.';
 				return;
 			}
 

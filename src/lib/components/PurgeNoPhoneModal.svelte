@@ -26,13 +26,11 @@
 </script>
 
 {#if crmStore.isPurgeModalOpen}
-	<!-- Modal Backdrop -->
-	<button
-		type="button"
-		class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm w-full h-full border-0 cursor-default"
-		onclick={() => crmStore.isPurgeModalOpen = false}
-		aria-label="Fechar modal"
-	></button>
+	<!-- Static Backdrop (does not close on click) -->
+	<div
+		class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm w-full h-full"
+		aria-hidden="true"
+	></div>
 
 	<!-- Modal Wrapper -->
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">

@@ -1,9 +1,7 @@
 import type { ClientLead, LeadPriority, LeadStatus } from '../types/crm';
 import rawData from './clientes.json';
 
-function getInitialPriority(item: { website: string | null; phone: string | null; categoryName: string }): LeadPriority {
-	if (item.phone && !item.website) return 'hot'; // Opportunity for Web + Direct Contact
-	if (item.phone && item.website) return 'warm';
+function getInitialPriority(_item: { website: string | null; phone: string | null; categoryName: string }): LeadPriority {
 	return 'cold';
 }
 

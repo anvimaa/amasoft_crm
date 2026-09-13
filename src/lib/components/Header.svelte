@@ -9,14 +9,6 @@
 	let { onToggleMobile }: Props = $props();
 	let isExportMenuOpen = $state<boolean>(false);
 
-	function formatCurrency(value: number): string {
-		return new Intl.NumberFormat('pt-AO', {
-			style: 'currency',
-			currency: 'AOA',
-			maximumFractionDigits: 0
-		}).format(value).replace('AOA', 'Kz');
-	}
-
 	let viewTitles: Record<string, { title: string; subtitle: string }> = {
 		dashboard: { title: 'Visão Geral', subtitle: 'Métricas e inteligência de prospecção' },
 		kanban: { title: 'Pipeline Comercial', subtitle: 'Fluxo de conversão e negociação' },

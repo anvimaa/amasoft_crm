@@ -4,18 +4,13 @@
 	import PriorityBadge from './PriorityBadge.svelte';
 	import type { ClientLead, LeadStatus } from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_TEMPLATES } from '../utils/whatsapp';
+	import { formatKz } from '../utils/format';
 
 	import { toast } from '../stores/toast.svelte';
 
 	let currentPage = $state<number>(1);
 	let itemsPerPage = $state<number>(20);
 	let jumpInput = $state<string>('');
-
-	function formatKz(value: number): string {
-		return new Intl.NumberFormat('pt-AO', {
-			maximumFractionDigits: 0
-		}).format(value) + ' Kz';
-	}
 
 	let totalFiltered = $derived(crmStore.filteredLeads.length);
 	let totalPages = $derived(Math.max(1, Math.ceil(totalFiltered / itemsPerPage)));

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { crmStore } from '../stores/crm.svelte';
+	import { companyStore } from '../stores/company.svelte';
+	import { toast } from '../stores/toast.svelte';
+	import { formatKz } from '../utils/format';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -8,14 +11,8 @@
 	}
 
 	let { isMobileOpen, onCloseMobile }: Props = $props();
-
-	function formatCurrency(value: number): string {
-		return new Intl.NumberFormat('pt-AO', {
-			style: 'currency',
-			currency: 'AOA',
-			maximumFractionDigits: 0
-		}).format(value).replace('AOA', 'Kz');
-	}
+	let restoreFileInput = $state<HTMLInputElement | null>(null);
+	let isRestoring = $state<boolean>(false);
 
 	function navigateTo(view: 'dashboard' | 'kanban' | 'table' | 'map' | 'agenda') {
 		crmStore.activeView = view;
@@ -43,6 +40,27 @@
 		crmStore.activeView = 'table';
 		onCloseMobile();
 	}
+
+	async function handleRestoreBackup(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		input.value = '';
+
+		isRestoring = true;
+		try {
+			const result = await crmStore.restoreFromBackup(file);
+			if (result.success) {
+				toast.success('Backup Restaurado', result.message);
+			} else {
+				toast.error('Erro ao Restaurar', result.message);
+			}
+		} catch {
+			toast.error('Erro ao Restaurar', 'Ocorreu um erro inesperado.');
+		} finally {
+			isRestoring = false;
+		}
+	}
 </script>
 
 <!-- Mobile Overlay Backdrop -->
@@ -63,11 +81,11 @@
 	<div class="flex h-16 items-center justify-between px-4 border-b border-zinc-800/80">
 		<div class="flex items-center gap-3">
 			<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700 text-white font-semibold text-xs tracking-wider">
-				AS
+				{companyStore.company.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
 			</div>
 			<div class="flex flex-col">
 				<div class="flex items-center gap-1.5">
-					<span class="text-xs font-semibold text-zinc-100 tracking-tight">Amasoft CRM</span>
+					<span class="text-xs font-semibold text-zinc-100 tracking-tight truncate max-w-[120px]">{companyStore.company.name}</span>
 					<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
 				</div>
 				<span class="text-[11px] text-zinc-400">Banco de Dados: .json</span>
@@ -242,7 +260,7 @@
 		<div class="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3 space-y-2">
 			<div class="flex items-center justify-between text-[11px]">
 				<span class="text-zinc-400">Volume em Pipeline</span>
-				<span class="font-mono text-zinc-200 font-semibold">{formatCurrency(crmStore.stats.totalPipelineValue)}</span>
+				<span class="font-mono text-zinc-200 font-semibold">{formatKz(crmStore.stats.totalPipelineValue)}</span>
 			</div>
 			
 			<div class="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
@@ -261,45 +279,96 @@
 	</div>
 
 	<!-- Sidebar Footer User / Tools -->
-	<div class="border-t border-zinc-800/80 p-3 bg-zinc-950/60 flex items-center justify-between">
-		<div class="flex items-center gap-2">
-			<div class="h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-semibold text-zinc-300">
-				AM
-			</div>
-			<div class="flex flex-col">
-				<span class="text-xs font-medium text-zinc-200">Amasoft Vendas</span>
-				<span class="text-[10px] text-zinc-400">data/crm-database.json</span>
-			</div>
+	<div class="border-t border-zinc-800/80 p-3 bg-zinc-950/60 space-y-2">
+		<!-- Settings Buttons -->
+		<div class="flex items-center gap-1.5">
+			<button
+				type="button"
+				onclick={() => { companyStore.isCompanyModalOpen = true; onCloseMobile(); }}
+				class="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-[10px] font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer"
+				title="Dados da empresa"
+			>
+				<Icon name="building" class="w-3 h-3" />
+				Empresa
+			</button>
+			<button
+				type="button"
+				onclick={() => { companyStore.isTeamModalOpen = true; onCloseMobile(); }}
+				class="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-[10px] font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer"
+				title="Gerir equipa"
+			>
+				<Icon name="user" class="w-3 h-3" />
+				Equipa
+			</button>
 		</div>
 
-		<div class="flex items-center gap-1">
+		<!-- Quick Actions Row -->
+		<div class="flex items-center gap-1.5">
 			<button
 				type="button"
-				onclick={() => {
-					crmStore.isImportModalOpen = true;
-					onCloseMobile();
-				}}
-				title="Importar ficheiro de empresas (.json)"
-				class="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				onclick={() => restoreFileInput?.click()}
+				disabled={isRestoring}
+				class="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-[10px] font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer disabled:opacity-40"
+				title="Restaurar a partir de backup completo"
 			>
-				<Icon name="upload" class="w-3.5 h-3.5" />
+				{#if isRestoring}
+					<div class="w-3 h-3 border-[1.5px] border-zinc-400 border-t-transparent rounded-full animate-spin"></div>
+				{:else}
+					<Icon name="refresh" class="w-3 h-3" />
+				{/if}
+				Backup
 			</button>
 			<button
 				type="button"
-				onclick={() => crmStore.exportOriginalFormat()}
-				title="Exportar no formato original de clientes.json"
-				class="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				onclick={() => { crmStore.isResetModalOpen = true; onCloseMobile(); }}
+				class="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-[10px] font-medium text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer"
+				title="Restaurar base de dados original (fábrica)"
 			>
-				<Icon name="download" class="w-3.5 h-3.5" />
+				<Icon name="trash" class="w-3 h-3" />
+				Fábrica
 			</button>
-			<button
-				type="button"
-				onclick={() => crmStore.isResetModalOpen = true}
-				title="Restaurar base de dados original"
-				class="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-			>
-				<Icon name="refresh" class="w-3.5 h-3.5" />
-			</button>
+			<input
+				type="file"
+				accept=".json"
+				bind:this={restoreFileInput}
+				onchange={handleRestoreBackup}
+				class="hidden"
+			/>
+		</div>
+
+		<!-- User Info + Tools -->
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-2">
+				<div class="h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-semibold text-zinc-300">
+					{companyStore.company.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+				</div>
+				<div class="flex flex-col">
+					<span class="text-xs font-medium text-zinc-200 truncate max-w-[100px]">{companyStore.company.name}</span>
+					<span class="text-[10px] text-zinc-400">{companyStore.team.filter(m => m.isActive).length} membro{companyStore.team.filter(m => m.isActive).length !== 1 ? 's' : ''}</span>
+				</div>
+			</div>
+
+			<div class="flex items-center gap-1">
+				<button
+					type="button"
+					onclick={() => {
+						crmStore.isImportModalOpen = true;
+						onCloseMobile();
+					}}
+					title="Importar ficheiro de empresas (.json)"
+					class="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="upload" class="w-3.5 h-3.5" />
+				</button>
+				<button
+					type="button"
+					onclick={() => crmStore.exportOriginalFormat()}
+					title="Exportar no formato original de clientes.json"
+					class="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="download" class="w-3.5 h-3.5" />
+				</button>
+			</div>
 		</div>
 	</div>
 </aside>

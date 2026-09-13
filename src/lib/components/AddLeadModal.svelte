@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { crmStore } from '../stores/crm.svelte';
+	import { companyStore } from '../stores/company.svelte';
 	import Icon from './Icon.svelte';
 	import type { LeadPriority, LeadStatus } from '../types/crm';
 
@@ -10,7 +11,7 @@
 	let website = $state('');
 	let address = $state('');
 	let status = $state<LeadStatus>('lead');
-	let priority = $state<LeadPriority>('hot');
+	let priority = $state<LeadPriority>('cold');
 	let estimatedValue = $state<number>(0);
 
 	let isExpandedOptional = $state<boolean>(false);
@@ -256,9 +257,13 @@
 									class="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-zinc-200 focus:border-zinc-600 focus:outline-none"
 								>
 									<option value="">Sem responsável</option>
-									<option value="Eu">Eu</option>
-									{#each crmStore.availableAssignees as a}
-										<option value={a}>{a}</option>
+									{#each companyStore.activeMembers as member (member.id)}
+										<option value={member.name}>{member.name}</option>
+									{/each}
+									{#each crmStore.availableAssignees as a (a)}
+										{#if !companyStore.getMemberByName(a)}
+											<option value={a}>{a}</option>
+										{/if}
 									{/each}
 								</select>
 							</div>

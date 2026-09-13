@@ -4,13 +4,8 @@
 	import PriorityBadge from './PriorityBadge.svelte';
 	import type { ClientLead, LeadStatus } from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_TEMPLATES } from '../utils/whatsapp';
+	import { formatKz } from '../utils/format';
 	import { toast } from '../stores/toast.svelte';
-
-	function formatKz(value: number): string {
-		return new Intl.NumberFormat('pt-AO', {
-			maximumFractionDigits: 0
-		}).format(value) + ' Kz';
-	}
 
 	const columns: { id: LeadStatus; title: string; dot: string }[] = [
 		{ id: 'lead', title: 'Novos Leads', dot: 'bg-blue-400' },
@@ -93,13 +88,13 @@
 	</div>
 
 	<!-- Kanban Columns Grid -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5 items-start">
+	<div class="flex xl:grid xl:grid-cols-6 gap-3.5 items-start overflow-x-auto xl:overflow-visible pb-2 xl:pb-0">
 		{#each columns as col}
 			{@const colLeads = crmStore.filteredLeads.filter(l => l.status === col.id)}
 			{@const colValue = colLeads.reduce((acc, l) => acc + (l.estimatedValue || 0), 0)}
 
 			<div
-				class="flex flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-2.5 min-h-[520px]"
+				class="flex flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-2.5 min-h-[400px] xl:min-h-[520px] min-w-[260px] xl:min-w-0 flex-shrink-0 xl:flex-shrink"
 				ondragover={handleDragOver}
 				ondrop={(e) => handleDrop(e, col.id)}
 				role="region"
@@ -181,8 +176,9 @@
 							</div>
 						</div>
 					{:else}
-						<div class="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800/80 p-5 text-center text-[11px] text-zinc-500">
-							<span>Vazio</span>
+						<div class="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800/80 p-6 text-center">
+							<Icon name="building" class="w-5 h-5 text-zinc-700 mb-2" />
+							<span class="text-[11px] text-zinc-500">Nenhuma empresa nesta fase</span>
 						</div>
 					{/each}
 				</div>

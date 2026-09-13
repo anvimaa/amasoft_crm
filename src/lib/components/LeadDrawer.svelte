@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { crmStore } from '../stores/crm.svelte';
+	import { companyStore } from '../stores/company.svelte';
 	import Icon from './Icon.svelte';
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
 	import type { ClientLead, InteractionOutcome, LeadPriority, LeadStatus, NoteType } from '../types/crm';
-	import { generateWhatsAppLink, WHATSAPP_TEMPLATES } from '../utils/whatsapp';
+	import { generateWhatsAppLink, WHATSAPP_TEMPLATES, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
+	import { formatKz } from '../utils/format';
 
 	import { toast } from '../stores/toast.svelte';
 
@@ -32,7 +34,8 @@
 	$effect(() => {
 		if (lead) {
 			const t = WHATSAPP_TEMPLATES.find(x => x.id === selectedTemplateId) || WHATSAPP_TEMPLATES[0];
-			customMessage = t.getText(lead.title, lead.categoryName, lead.city || 'Angola');
+			const assigneeName = lead.assignedTo ? companyStore.getMemberByName(lead.assignedTo)?.name : undefined;
+			customMessage = t.getText(lead.title, lead.categoryName, lead.city || 'Angola', companyStore.company, assigneeName);
 			isConfirmingDelete = false;
 			decisionMaker = lead.decisionMaker || '';
 			decisionMakerRole = lead.decisionMakerRole || '';
@@ -69,7 +72,8 @@
 		selectedTemplateId = templateId;
 		if (lead) {
 			const t = WHATSAPP_TEMPLATES.find(x => x.id === templateId) || WHATSAPP_TEMPLATES[0];
-			customMessage = t.getText(lead.title, lead.categoryName, lead.city || 'Angola');
+			const assigneeName = lead.assignedTo ? companyStore.getMemberByName(lead.assignedTo)?.name : undefined;
+			customMessage = t.getText(lead.title, lead.categoryName, lead.city || 'Angola', companyStore.company, assigneeName);
 		}
 	}
 
@@ -130,12 +134,6 @@
 		if (!lead) return;
 		crmStore.completeFollowUp(lead.id);
 		followUpDraft = '';
-	}
-
-	function formatKz(value: number): string {
-		return new Intl.NumberFormat('pt-AO', {
-			maximumFractionDigits: 0
-		}).format(value) + ' Kz';
 	}
 
 	function formatDate(isoString: string): string {
@@ -297,19 +295,32 @@
 						{/if}
 					</div>
 
-					<!-- Template Selector -->
+					<!-- Template Selector with Categories -->
 					<div>
-						<label for="template-picker" class="block text-xs font-medium text-zinc-300 mb-2">Modelo de Comunicação</label>
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-							{#each WHATSAPP_TEMPLATES as template}
-								<button
-									type="button"
-									onclick={() => handleTemplateChange(template.id)}
-									class="text-left p-3 rounded-lg border transition-all cursor-pointer {selectedTemplateId === template.id ? 'border-zinc-500 bg-zinc-900 text-white' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}"
-								>
-									<div class="text-xs font-semibold">{template.title}</div>
-									<div class="text-[11px] text-zinc-400 mt-1 line-clamp-2">{template.description}</div>
-								</button>
+						<label for="template-picker" class="block text-xs font-medium text-zinc-300 mb-2">Modelos de Comunicação ({WHATSAPP_TEMPLATES.length})</label>
+						<div class="space-y-3">
+							{#each Object.entries(WHATSAPP_CATEGORIES) as [catKey, catInfo]}
+								{@const catTemplates = WHATSAPP_TEMPLATES.filter(t => t.category === catKey)}
+								{#if catTemplates.length > 0}
+									<div>
+										<div class="flex items-center gap-2 mb-1.5">
+											<span class="w-2 h-2 rounded-full" style="background-color: {catInfo.color}"></span>
+											<span class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">{catInfo.label}</span>
+										</div>
+										<div class="grid grid-cols-1 gap-1.5">
+											{#each catTemplates as template (template.id)}
+												<button
+													type="button"
+													onclick={() => handleTemplateChange(template.id)}
+													class="text-left p-2.5 rounded-lg border transition-all cursor-pointer {selectedTemplateId === template.id ? 'border-zinc-500 bg-zinc-900 text-white' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700'}"
+												>
+													<div class="text-[11px] font-semibold">{template.title}</div>
+													<div class="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{template.description}</div>
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/if}
 							{/each}
 						</div>
 					</div>
@@ -579,9 +590,13 @@
 									class="flex-1 rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-200 focus:border-zinc-500 focus:outline-none"
 								>
 									<option value="">Sem responsável</option>
-									<option value="Eu">Eu (Anvima)</option>
-									{#each crmStore.availableAssignees as a}
-										<option value={a}>{a}</option>
+									{#each companyStore.activeMembers as member (member.id)}
+										<option value={member.name}>{member.name} — {member.role}</option>
+									{/each}
+									{#each crmStore.availableAssignees as a (a)}
+										{#if !companyStore.getMemberByName(a)}
+											<option value={a}>{a}</option>
+										{/if}
 									{/each}
 								</select>
 							</div>

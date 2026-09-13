@@ -12,6 +12,8 @@
 	import PurgeNoPhoneModal from '#lib/components/PurgeNoPhoneModal.svelte';
 	import ResetConfirmModal from '#lib/components/ResetConfirmModal.svelte';
 	import ImportLeadsModal from '#lib/components/ImportLeadsModal.svelte';
+	import CompanySettingsModal from '#lib/components/CompanySettingsModal.svelte';
+	import TeamManagementModal from '#lib/components/TeamManagementModal.svelte';
 	import ToastContainer from '#lib/components/ToastContainer.svelte';
 
 	let isMobileSidebarOpen = $state<boolean>(false);
@@ -63,6 +65,8 @@
 	<AddLeadModal />
 	<PurgeNoPhoneModal />
 	<ImportLeadsModal />
+	<CompanySettingsModal />
+	<TeamManagementModal />
 	<ResetConfirmModal
 		isOpen={crmStore.isResetModalOpen}
 		onClose={() => crmStore.isResetModalOpen = false}

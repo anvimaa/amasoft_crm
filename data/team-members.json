@@ -1,0 +1,20 @@
+[
+  {
+    "id": "member-1",
+    "name": "António Mantente",
+    "role": "Administrador",
+    "email": "antonio.mantente@amasoft.ao",
+    "phone": "+244 934 342 795",
+    "color": "#3b82f6",
+    "isActive": true
+  },
+  {
+    "name": "Eduarda Gomes",
+    "role": "Comercial",
+    "email": "eduarda.gomes@amasoft.ao",
+    "phone": "+244 933 343 231",
+    "isActive": true,
+    "id": "member-1789307267984",
+    "color": "#ef4444"
+  }
+]

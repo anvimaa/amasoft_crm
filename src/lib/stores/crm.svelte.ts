@@ -1,5 +1,6 @@
 import type { ClientLead, CRMFilterOptions, CRMStats, FollowUpGroups, InteractionOutcome, LeadPriority, LeadStatus, Note, NoteType, RawClientData } from '../types/crm';
 import { INITIAL_LEADS } from '../data/initial-leads';
+import { companyStore } from './company.svelte';
 
 const STORAGE_KEY = 'amasoft_crm_leads_v2';
 
@@ -529,9 +530,47 @@ class CRMState {
 		this.isDrawerOpen = false;
 	}
 
-	// Export full CRM database with notes & pipeline data
+	async restoreFromBackup(file: File): Promise<{ success: boolean; message: string }> {
+		try {
+			const text = await file.text();
+			const json = JSON.parse(text);
+
+			if (!json || typeof json !== 'object' || !Array.isArray(json.leads)) {
+				return { success: false, message: 'Formato inválido. O ficheiro deve ser uma exportação completa do CRM.' };
+			}
+
+			if (json.company) {
+				companyStore.updateCompany(json.company);
+			}
+			if (json.team && Array.isArray(json.team)) {
+				companyStore.team = json.team;
+				try { localStorage.setItem('amasoft_crm_team_v1', JSON.stringify(json.team)); } catch {}
+				fetch('/api/company', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ type: 'team', data: json.team })
+				}).catch(() => {});
+			}
+
+			this.leads = json.leads;
+			await this.saveToStorage();
+			this.selectedLead = null;
+			this.isDrawerOpen = false;
+
+			return { success: true, message: `${json.leads.length} leads, empresa e equipa restaurados com sucesso.` };
+		} catch (e: any) {
+			return { success: false, message: `Erro ao ler o ficheiro: ${e.message || 'Sintaxe inválida.'}` };
+		}
+	}
+
+	// Export full CRM database with notes, pipeline, company & team data
 	exportToJSON() {
-		const jsonStr = JSON.stringify(this.leads, null, 2);
+		const payload = {
+			company: companyStore.company,
+			team: companyStore.team,
+			leads: this.leads
+		};
+		const jsonStr = JSON.stringify(payload, null, 2);
 		const blob = new Blob([jsonStr], { type: 'application/json' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
@@ -613,13 +652,8 @@ class CRMState {
 				existingPhones.add(phoneClean);
 			}
 
-			// Standard priority logic
-			let priority: LeadPriority = 'cold';
-			if (item.phone && !item.website) {
-				priority = 'hot';
-			} else if (item.phone && item.website) {
-				priority = 'warm';
-			}
+			// Priority always starts cold — user changes manually
+			const priority: LeadPriority = 'cold';
 
 			const tags: string[] = [];
 			if (!item.website) tags.push('Sem Website');

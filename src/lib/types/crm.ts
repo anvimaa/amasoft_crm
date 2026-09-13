@@ -91,6 +91,30 @@ export interface FollowUpGroups {
 	unscheduled: ClientLead[];
 }
 
+export interface CompanyProfile {
+	id: string;
+	name: string;
+	nif: string;
+	sector: string;
+	website: string;
+	email: string;
+	phone: string;
+	address: string;
+	city: string;
+	logoUrl?: string;
+	slogan?: string;
+}
+
+export interface TeamMember {
+	id: string;
+	name: string;
+	role: string;
+	email: string;
+	phone: string;
+	color: string;
+	isActive: boolean;
+}
+
 export interface RawClientData {
 	title: string;
 	categories?: string[];

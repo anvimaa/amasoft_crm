@@ -5,14 +5,11 @@
 	import StatusBadge from './StatusBadge.svelte';
 	import type { ClientLead } from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_TEMPLATES } from '../utils/whatsapp';
+	import { formatKz } from '../utils/format';
 	import { toast } from '../stores/toast.svelte';
 
 	let quickRescheduleId = $state<string | null>(null);
 	let quickRescheduleDate = $state<string>('');
-
-	function formatKz(value: number): string {
-		return new Intl.NumberFormat('pt-AO', { maximumFractionDigits: 0 }).format(value) + ' Kz';
-	}
 
 	function formatDate(isoString: string | null): string {
 		if (!isoString) return '—';
@@ -145,7 +142,10 @@
 				</div>
 
 				{#if section.leads.length === 0}
-					<p class="text-xs text-zinc-500 py-3 text-center">{section.emptyText}</p>
+					<div class="flex items-center gap-2 py-4 text-center text-zinc-600">
+						<Icon name={section.icon} class="w-3.5 h-3.5 {section.iconColor} opacity-40" />
+						<span class="text-[11px]">{section.emptyText}</span>
+					</div>
 				{:else}
 					<div class="divide-y divide-zinc-800/80">
 						{#each section.leads as lead (lead.id)}
