@@ -3,6 +3,7 @@ import { INITIAL_LEADS } from '../data/initial-leads';
 import { companyStore } from './company.svelte';
 
 const STORAGE_KEY = 'amasoft_crm_leads_v2';
+const ETAG_KEY = 'amasoft_crm_etag';
 
 const STALE_AFTER_DAYS = 14;
 
@@ -29,7 +30,6 @@ function startOfToday(): Date {
 class CRMState {
 	leads = $state<ClientLead[]>([]);
 	selectedLead = $state<ClientLead | null>(null);
-	activeView = $state<'dashboard' | 'kanban' | 'table' | 'map' | 'agenda'>('dashboard');
 	isDrawerOpen = $state<boolean>(false);
 	isAddModalOpen = $state<boolean>(false);
 	isPurgeModalOpen = $state<boolean>(false);
@@ -56,25 +56,7 @@ class CRMState {
 
 	async init() {
 		if (typeof window !== 'undefined') {
-			try {
-				// 1. First try to load from Server JSON file
-				const response = await fetch('/api/leads');
-				if (response.ok) {
-					const data = await response.json();
-					if (Array.isArray(data) && data.length > 0) {
-						this.leads = data;
-						this.isLoaded = true;
-						try {
-							localStorage.setItem(STORAGE_KEY, JSON.stringify(this.leads));
-						} catch {}
-						return;
-					}
-				}
-			} catch (e) {
-				console.warn('Server API unavailable, checking local storage...', e);
-			}
-
-			// 2. Fallback to LocalStorage
+			// 1. Load from localStorage immediately (instant UI)
 			try {
 				const saved = localStorage.getItem(STORAGE_KEY);
 				if (saved) {
@@ -82,41 +64,75 @@ class CRMState {
 					if (Array.isArray(parsed) && parsed.length > 0) {
 						this.leads = parsed;
 						this.isLoaded = true;
-						return;
 					}
 				}
 			} catch (e) {
-				console.error('Error loading CRM leads from storage', e);
+				console.error('Error loading from localStorage:', e);
+			}
+
+			// 2. Fetch from server in background with ETag
+			try {
+				const etag = localStorage.getItem(ETAG_KEY) || '';
+				const response = await fetch('/api/leads', {
+					headers: { 'If-None-Match': etag }
+				});
+
+				if (response.status === 304) {
+					// Server data unchanged — nothing to do
+					return;
+				}
+
+				if (response.ok) {
+					const data = await response.json();
+					if (Array.isArray(data) && data.length > 0) {
+						this.leads = data;
+						this.isLoaded = true;
+						const newEtag = response.headers.get('ETag') || '';
+						try {
+							localStorage.setItem(STORAGE_KEY, JSON.stringify(this.leads));
+							if (newEtag) localStorage.setItem(ETAG_KEY, newEtag);
+						} catch {}
+					}
+				}
+			} catch (e) {
+				console.warn('Server API unavailable, using local data.', e);
 			}
 		}
 
-		// 3. Default to INITIAL_LEADS
-		this.leads = INITIAL_LEADS;
-		this.isLoaded = true;
+		// 3. Fallback to INITIAL_LEADS
+		if (!this.isLoaded) {
+			this.leads = INITIAL_LEADS;
+			this.isLoaded = true;
+		}
 	}
+
+	private _saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	async saveToStorage() {
 		if (typeof window !== 'undefined') {
-			// Save locally
+			// localStorage always immediate
 			try {
 				localStorage.setItem(STORAGE_KEY, JSON.stringify(this.leads));
 			} catch (e) {
 				console.error('Error saving to storage', e);
 			}
 
-			// Persist to Server data/crm-database.json
-			try {
-				this.isSaving = true;
-				await fetch('/api/leads', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(this.leads)
-				});
-			} catch (e) {
-				console.error('Error saving to server database:', e);
-			} finally {
-				this.isSaving = false;
-			}
+			// Server persist with debounce (500ms)
+			if (this._saveTimeout) clearTimeout(this._saveTimeout);
+			this._saveTimeout = setTimeout(async () => {
+				try {
+					this.isSaving = true;
+					await fetch('/api/leads', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(this.leads)
+					});
+				} catch (e) {
+					console.error('Error saving to server database:', e);
+				} finally {
+					this.isSaving = false;
+				}
+			}, 500);
 		}
 	}
 

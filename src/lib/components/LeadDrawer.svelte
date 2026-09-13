@@ -31,6 +31,19 @@
 	let emailError = $state<string>('');
 	let followUpDraft = $state<string>('');
 
+	// Editable cadastral fields
+	let editPhone = $state<string>('');
+	let editAddress = $state<string>('');
+	let editCity = $state<string>('');
+	let editWebsite = $state<string>('');
+	let editNeighborhood = $state<string>('');
+	let editStreet = $state<string>('');
+	let editPostalCode = $state<string>('');
+	let editState = $state<string>('');
+	let editCategory = $state<string>('');
+	let editEmail = $state<string>('');
+	let isEditingCadastral = $state<boolean>(false);
+
 	$effect(() => {
 		if (lead) {
 			const t = WHATSAPP_TEMPLATES.find(x => x.id === selectedTemplateId) || WHATSAPP_TEMPLATES[0];
@@ -44,6 +57,17 @@
 			emailError = '';
 			followUpDraft = lead.nextFollowUpDate ? lead.nextFollowUpDate.slice(0, 10) : '';
 			if (!newNoteNextFollowUp) newNoteNextFollowUp = '';
+			editPhone = lead.phone || '';
+			editAddress = lead.address || '';
+			editCity = lead.city || '';
+			editWebsite = lead.website || '';
+			editNeighborhood = lead.neighborhood || '';
+			editStreet = lead.street || '';
+			editPostalCode = lead.postalCode || '';
+			editState = lead.state || '';
+			editCategory = lead.categoryName || 'Geral';
+			editEmail = lead.email || '';
+			isEditingCadastral = false;
 		}
 	});
 
@@ -134,6 +158,39 @@
 		if (!lead) return;
 		crmStore.completeFollowUp(lead.id);
 		followUpDraft = '';
+	}
+
+	function handleSaveCadastral() {
+		if (!lead) return;
+		if (editEmail.trim() && !isValidEmail(editEmail)) {
+			toast.error('Email inválido', 'Verifique o formato do email antes de guardar.');
+			return;
+		}
+		const phoneClean = editPhone.trim().replace(/[^0-9+]/g, '');
+		const phoneUnformatted = phoneClean.replace(/[^0-9]/g, '') || null;
+		const newTags: string[] = [];
+		if (!editWebsite.trim()) newTags.push('Sem Website');
+		else newTags.push('Com Website');
+		if (phoneClean) newTags.push('Telefone Válido');
+		if (editCity.trim()) newTags.push(editCity.trim());
+		crmStore.updateLead({
+			...lead,
+			phone: phoneClean || null,
+			phoneUnformatted,
+			address: editAddress.trim() || null,
+			city: editCity.trim() || 'Desconhecida',
+			website: editWebsite.trim() || null,
+			email: editEmail.trim() || undefined,
+			neighborhood: editNeighborhood.trim() || null,
+			street: editStreet.trim() || null,
+			postalCode: editPostalCode.trim() || null,
+			state: editState.trim() || null,
+			categoryName: editCategory.trim() || 'Geral',
+			categories: editCategory.trim() ? [editCategory.trim()] : lead.categories,
+			tags: newTags
+		});
+		isEditingCadastral = false;
+		toast.success('Dados cadastrais atualizados', 'Informação da empresa guardada com sucesso.');
 	}
 
 	function formatDate(isoString: string): string {
@@ -616,53 +673,219 @@
 
 				<!-- Company Details -->
 				<div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
-					<span class="font-semibold text-zinc-200">Dados Cadastrais</span>
-
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-						<div>
-							<span class="text-zinc-500 block text-[11px]">Telefone</span>
-							<span class="font-mono text-zinc-200 text-xs">{lead.phone || 'Não informado'}</span>
-						</div>
-
-						<div>
-							<span class="text-zinc-500 block text-[11px]">Província / Cidade</span>
-							<span class="text-zinc-200 text-xs">{lead.city || 'Angola'}</span>
-						</div>
-
-						<div>
-							<span class="text-zinc-500 block text-[11px]">Endereço</span>
-							<span class="text-zinc-200 text-xs">{lead.address || 'Não informado'}</span>
-						</div>
-
-						<div>
-							<span class="text-zinc-500 block text-[11px]">Website</span>
-							{#if lead.website}
-								<a href={lead.website} target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline">{lead.website}</a>
-							{:else}
-								<span class="text-zinc-400">Sem Website</span>
-							{/if}
-						</div>
-
-						<div>
-							<span class="text-zinc-500 block text-[11px]">Valor Estimado da Oportunidade</span>
-							<input
-								type="number"
-								value={lead.estimatedValue}
-								onchange={(e) => {
-									if (lead) {
-										lead.estimatedValue = Number((e.target as HTMLInputElement).value);
-										crmStore.updateLead(lead);
-									}
-								}}
-								class="w-full mt-1 rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1 text-xs text-zinc-100 focus:border-zinc-500 focus:outline-none font-mono"
-							/>
-						</div>
-
-						<div>
-							<span class="text-zinc-500 block text-[11px]">Setor Comercial</span>
-							<span class="text-zinc-200 text-xs">{lead.categoryName}</span>
-						</div>
+					<div class="flex items-center justify-between">
+						<span class="font-semibold text-zinc-200">Dados Cadastrais</span>
+						{#if !isEditingCadastral}
+							<button
+								type="button"
+								onclick={() => isEditingCadastral = true}
+								class="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+							>
+								<Icon name="edit" class="w-3 h-3" />
+								Editar
+							</button>
+						{/if}
 					</div>
+
+					{#if isEditingCadastral}
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+							<div>
+								<label for="edit-phone" class="block text-[11px] font-medium text-zinc-500 mb-1">Telefone</label>
+								<input
+									id="edit-phone"
+									type="text"
+									bind:value={editPhone}
+									placeholder="+244 9XX XXX XXX"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none font-mono"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-city" class="block text-[11px] font-medium text-zinc-500 mb-1">Província / Cidade</label>
+								<input
+									id="edit-city"
+									type="text"
+									bind:value={editCity}
+									placeholder="Ex: Luanda, Benguela..."
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div class="sm:col-span-2">
+								<label for="edit-address" class="block text-[11px] font-medium text-zinc-500 mb-1">Endereço</label>
+								<input
+									id="edit-address"
+									type="text"
+									bind:value={editAddress}
+									placeholder="Ex: Rua Major Kanhangulo, 234"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-neighborhood" class="block text-[11px] font-medium text-zinc-500 mb-1">Bairro</label>
+								<input
+									id="edit-neighborhood"
+									type="text"
+									bind:value={editNeighborhood}
+									placeholder="Ex: Ingombota"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-street" class="block text-[11px] font-medium text-zinc-500 mb-1">Rua</label>
+								<input
+									id="edit-street"
+									type="text"
+									bind:value={editStreet}
+									placeholder="Ex: Rua 5 de Outubro"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-website" class="block text-[11px] font-medium text-zinc-500 mb-1">Website</label>
+								<input
+									id="edit-website"
+									type="text"
+									bind:value={editWebsite}
+									placeholder="Ex: https://empresa.co.ao"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-email-cad" class="block text-[11px] font-medium text-zinc-500 mb-1">Email</label>
+								<input
+									id="edit-email-cad"
+									type="email"
+									bind:value={editEmail}
+									placeholder="Ex: geral@empresa.co.ao"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-postal" class="block text-[11px] font-medium text-zinc-500 mb-1">Código Postal</label>
+								<input
+									id="edit-postal"
+									type="text"
+									bind:value={editPostalCode}
+									placeholder="Ex: CP 1234"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-state" class="block text-[11px] font-medium text-zinc-500 mb-1">Província</label>
+								<input
+									id="edit-state"
+									type="text"
+									bind:value={editState}
+									placeholder="Ex: Luanda"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+
+							<div>
+								<label for="edit-category" class="block text-[11px] font-medium text-zinc-500 mb-1">Setor Comercial</label>
+								<input
+									id="edit-category"
+									type="text"
+									bind:value={editCategory}
+									placeholder="Ex: Telecomunicações"
+									class="w-full rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+								/>
+							</div>
+						</div>
+
+						<div class="flex justify-end gap-2 pt-2">
+							<button
+								type="button"
+								onclick={() => { isEditingCadastral = false; if (lead) { editPhone = lead.phone || ''; editAddress = lead.address || ''; editCity = lead.city || ''; editWebsite = lead.website || ''; editNeighborhood = lead.neighborhood || ''; editStreet = lead.street || ''; editPostalCode = lead.postalCode || ''; editState = lead.state || ''; editCategory = lead.categoryName || 'Geral'; editEmail = lead.email || ''; } }}
+								class="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+							>
+								Cancelar
+							</button>
+							<button
+								type="button"
+								onclick={handleSaveCadastral}
+								class="rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white cursor-pointer"
+							>
+								Guardar Dados
+							</button>
+						</div>
+					{:else}
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Telefone</span>
+								<span class="font-mono text-zinc-200 text-xs">{lead.phone || 'Não informado'}</span>
+							</div>
+
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Província / Cidade</span>
+								<span class="text-zinc-200 text-xs">{lead.city || 'Angola'}</span>
+							</div>
+
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Endereço</span>
+								<span class="text-zinc-200 text-xs">{lead.address || 'Não informado'}</span>
+							</div>
+
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Website</span>
+								{#if lead.website}
+									<a href={lead.website} target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline text-xs">{lead.website}</a>
+								{:else}
+									<span class="text-zinc-400 text-xs">Sem Website</span>
+								{/if}
+							</div>
+
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Email</span>
+								{#if lead.email}
+									<a href="mailto:{lead.email}" class="text-indigo-400 hover:underline text-xs">{lead.email}</a>
+								{:else}
+									<span class="text-zinc-400 text-xs">Sem Email</span>
+								{/if}
+							</div>
+
+							{#if lead.neighborhood}
+								<div>
+									<span class="text-zinc-500 block text-[11px]">Bairro</span>
+									<span class="text-zinc-200 text-xs">{lead.neighborhood}</span>
+								</div>
+							{/if}
+
+							{#if lead.street}
+								<div>
+									<span class="text-zinc-500 block text-[11px]">Rua</span>
+									<span class="text-zinc-200 text-xs">{lead.street}</span>
+								</div>
+							{/if}
+
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Setor Comercial</span>
+								<span class="text-zinc-200 text-xs">{lead.categoryName}</span>
+							</div>
+
+							<div>
+								<span class="text-zinc-500 block text-[11px]">Valor Estimado</span>
+								<input
+									type="number"
+									value={lead.estimatedValue}
+									onchange={(e) => {
+										if (lead) {
+											lead.estimatedValue = Number((e.target as HTMLInputElement).value);
+											crmStore.updateLead(lead);
+										}
+									}}
+									class="w-full mt-1 rounded bg-zinc-950 border border-zinc-700 px-2.5 py-1 text-xs text-zinc-100 focus:border-zinc-500 focus:outline-none font-mono"
+								/>
+							</div>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Delete Action -->

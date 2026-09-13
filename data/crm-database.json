@@ -1,5 +1,58 @@
 [
   {
+    "title": "PAFIFE LDA",
+    "categoryName": "Prestação de Serviços",
+    "categories": [
+      "Prestação de Serviços"
+    ],
+    "city": "Luanda",
+    "phone": "932323215",
+    "phoneUnformatted": "932323215",
+    "website": "www.pafife.store",
+    "address": null,
+    "neighborhood": null,
+    "street": null,
+    "postalCode": null,
+    "state": null,
+    "countryCode": "AO",
+    "location": null,
+    "plusCode": null,
+    "status": "lead",
+    "priority": "warm",
+    "estimatedValue": 100000,
+    "tags": [
+      "Com Website",
+      "Telefone Válido",
+      "Luanda"
+    ],
+    "lastContactDate": "2026-09-13T21:30:20.814Z",
+    "nextFollowUpDate": null,
+    "decisionMaker": "DOMINGOS DRUPET",
+    "assignedTo": "António Mantente",
+    "id": "lead-custom-1789329819659",
+    "notes": [
+      {
+        "id": "note-1789335020814",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:20.814Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789329921924",
+        "content": "Estágio alterado para \"Fechado\".",
+        "createdAt": "2026-09-13T20:05:21.924Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789329819659",
+        "content": "Registo criado no CRM Amasoft.",
+        "createdAt": "2026-09-13T20:03:39.659Z",
+        "type": "general"
+      }
+    ],
+    "decisionMakerRole": "CEO"
+  },
+  {
     "id": "lead-1",
     "title": "TAYE – Prestação de Serviços, Lda",
     "categories": [
@@ -63,8 +116,21 @@
       "Telefone Válido",
       "Cabinda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335008137",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:08.137Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334996643",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-13T21:29:56.643Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:08.136Z",
     "nextFollowUpDate": null
   },
   {
@@ -437,8 +503,21 @@
       "Telefone Válido",
       "Centralidade de Cacuaco"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335022568",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:22.568Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333753543",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:13.543Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:22.567Z",
     "nextFollowUpDate": null
   },
   {
@@ -986,8 +1065,21 @@
       "Telefone Válido",
       "Huambo"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335015378",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:15.378Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333762367",
+        "content": "Estágio alterado para \"Fechado\".",
+        "createdAt": "2026-09-13T21:09:22.367Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:15.377Z",
     "nextFollowUpDate": null
   },
   {
@@ -1330,8 +1422,21 @@
       "Telefone Válido",
       "Huambo"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335030169",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:30.169Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334963815",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:29:23.815Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:30.169Z",
     "nextFollowUpDate": null
   },
   {
@@ -1943,8 +2048,21 @@
       "Sem Website",
       "Telefone Válido"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335024926",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:24.926Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334960697",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:29:20.697Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:24.926Z",
     "nextFollowUpDate": null
   },
   {
@@ -2689,8 +2807,21 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335018198",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:18.198Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334991928",
+        "content": "Estágio alterado para \"Fechado\".",
+        "createdAt": "2026-09-13T21:29:51.928Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:18.198Z",
     "nextFollowUpDate": null
   },
   {
@@ -2825,8 +2956,21 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335051946",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:51.946Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333764352",
+        "content": "Estágio alterado para \"Desqualificado\".",
+        "createdAt": "2026-09-13T21:09:24.352Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:51.946Z",
     "nextFollowUpDate": null
   },
   {
@@ -3131,8 +3275,21 @@
       "Telefone Válido",
       "Sumbe"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335049251",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:49.251Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789335004890",
+        "content": "Estágio alterado para \"Desqualificado\".",
+        "createdAt": "2026-09-13T21:30:04.890Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:49.251Z",
     "nextFollowUpDate": null
   },
   {
@@ -3678,8 +3835,21 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335040980",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:40.980Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333756533",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:16.533Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:40.980Z",
     "nextFollowUpDate": null
   },
   {
@@ -3712,8 +3882,21 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335032283",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:32.283Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334981312",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:29:41.312Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:32.283Z",
     "nextFollowUpDate": null
   },
   {
@@ -3848,8 +4031,21 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335026861",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:26.861Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334966739",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:29:26.739Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:26.861Z",
     "nextFollowUpDate": null
   },
   {
@@ -3882,8 +4078,33 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335010239",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:10.239Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334903622",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-13T21:28:23.622Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334900696",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:28:20.696Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333759764",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-13T21:09:19.764Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:10.239Z",
     "nextFollowUpDate": null
   },
   {
@@ -5036,8 +5257,21 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335035168",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:35.168Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334972126",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:29:32.126Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:35.168Z",
     "nextFollowUpDate": null
   },
   {
@@ -6537,8 +6771,21 @@
       "Telefone Válido",
       "Belas"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335046432",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:46.432Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333767895",
+        "content": "Estágio alterado para \"Desqualificado\".",
+        "createdAt": "2026-09-13T21:09:27.895Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:46.432Z",
     "nextFollowUpDate": null
   },
   {
@@ -7327,6 +7574,18 @@
     ],
     "notes": [
       {
+        "id": "note-1789335038171",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:38.171Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333744977",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:09:04.977Z",
+        "type": "general"
+      },
+      {
         "id": "note-1789309863844",
         "content": "Contacto via WhatsApp (Agenda).",
         "createdAt": "2026-09-13T14:31:03.844Z",
@@ -7341,7 +7600,7 @@
         "type": "general"
       }
     ],
-    "lastContactDate": "2026-09-13T14:31:03.844Z",
+    "lastContactDate": "2026-09-13T21:30:38.171Z",
     "nextFollowUpDate": null
   },
   {
@@ -8337,40 +8596,6 @@
     "nextFollowUpDate": null
   },
   {
-    "id": "lead-imp-1789298288012-7",
-    "title": "A4 Gráfica",
-    "categories": [
-      "Designer Gráfico"
-    ],
-    "categoryName": "Designer Gráfico",
-    "address": "Bairro da Mapunda, Lubango, Angola",
-    "neighborhood": null,
-    "street": "Bairro da Mapunda",
-    "city": "Lubango",
-    "postalCode": null,
-    "state": null,
-    "countryCode": "AO",
-    "website": null,
-    "phone": "+244 941 557 778",
-    "phoneUnformatted": "+244941557778",
-    "location": {
-      "lat": -14.9061457,
-      "lng": 13.4787305
-    },
-    "plusCode": null,
-    "status": "lead",
-    "priority": "cold",
-    "estimatedValue": 0,
-    "tags": [
-      "Sem Website",
-      "Telefone Válido",
-      "Lubango"
-    ],
-    "notes": [],
-    "lastContactDate": null,
-    "nextFollowUpDate": null
-  },
-  {
     "id": "lead-imp-1789298288012-8",
     "title": "Gráfica Ohana",
     "categories": [
@@ -8776,8 +9001,33 @@
       "Telefone Válido",
       "Huambo"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789335012671",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:12.671Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334897992",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-13T21:28:17.992Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789334891047",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:28:11.047Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333751597",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:11.597Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:30:12.671Z",
     "nextFollowUpDate": null
   },
   {
@@ -9260,6 +9510,18 @@
     ],
     "notes": [
       {
+        "id": "note-1789335043625",
+        "content": "Estágio alterado para \"Novo Lead\".",
+        "createdAt": "2026-09-13T21:30:43.625Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789333747218",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:07.218Z",
+        "type": "general"
+      },
+      {
         "id": "note-1789309569236",
         "content": "Estágio alterado para \"Novo Lead\".",
         "createdAt": "2026-09-13T14:26:09.236Z",
@@ -9272,7 +9534,7 @@
         "type": "general"
       }
     ],
-    "lastContactDate": "2026-09-13T14:26:09.236Z",
+    "lastContactDate": "2026-09-13T21:30:43.625Z",
     "nextFollowUpDate": null
   },
   {

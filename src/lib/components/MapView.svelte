@@ -8,6 +8,18 @@
 	let selectedCity = $state<string>('all');
 	let mapSearch = $state<string>('');
 
+	// Pre-compute noWebsite count per city (single pass)
+	let noWebsiteByCity = $derived.by(() => {
+		const map: Record<string, number> = {};
+		for (const lead of crmStore.leads) {
+			const city = lead.city || 'Angola';
+			if (!lead.website) {
+				map[city] = (map[city] || 0) + 1;
+			}
+		}
+		return map;
+	});
+
 	let filteredCityLeads = $derived.by(() => {
 		let list = crmStore.leads;
 		if (selectedCity !== 'all') {
@@ -101,9 +113,9 @@
 						>
 							<div>
 								<div class="text-xs font-semibold text-zinc-200">{cityData.city}</div>
-								<div class="text-[10px] text-zinc-500 mt-0.5">
-									{crmStore.leads.filter(l => l.city === cityData.city && !l.website).length} sem website
-								</div>
+							<div class="text-[10px] text-zinc-500 mt-0.5">
+								{noWebsiteByCity[cityData.city] || 0} sem website
+							</div>
 							</div>
 							
 							<span class="rounded bg-zinc-800 px-2 py-0.5 text-xs font-mono text-zinc-300">

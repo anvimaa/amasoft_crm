@@ -1,13 +1,13 @@
 {
   "id": "company-1",
-  "name": "AMANTENTE SOFT - COMERCIO",
+  "name": "AMANTENTE SOFT - COMERCIO & SERVIÇOS, LDA",
   "nif": "5002097788",
   "sector": "Tecnologia & Software",
-  "website": "https://www.amasoft.ao",
-  "email": "comercial@amasoft.ao",
-  "phone": "+244 934342795",
-  "address": "Uige, Angola",
-  "city": "UIGE",
+  "website": "https://amasoft.co.ao",
+  "email": "comercial@amasoft.co.ao",
+  "phone": "+244 923 456 789",
+  "address": "Luanda, Angola",
+  "city": "Luanda",
   "logoUrl": "",
   "slogan": "Soluções tecnológicas para empresas em Angola"
 }

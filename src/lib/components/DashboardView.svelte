@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { crmStore } from '../stores/crm.svelte';
 	import Icon from './Icon.svelte';
 	import StatusBadge from './StatusBadge.svelte';
@@ -105,7 +106,7 @@
 			crmStore.filters.priority = 'all';
 			crmStore.filters.city = 'all';
 		}
-		crmStore.activeView = 'table';
+		goto('/table');
 	}
 
 	function handleFunnelClick(index: number) {
@@ -251,7 +252,7 @@
 				</div>
 				<button
 					type="button"
-					onclick={() => crmStore.activeView = 'kanban'}
+					onclick={() => goto('/pipeline')}
 					class="text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
 				>
 					Ver Pipeline
@@ -314,7 +315,7 @@
 				</div>
 				<button
 					type="button"
-					onclick={() => crmStore.activeView = 'map'}
+					onclick={() => goto('/map')}
 					class="text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
 				>
 					Mapa
@@ -375,7 +376,7 @@
 				</div>
 				<button
 					type="button"
-					onclick={() => crmStore.activeView = 'agenda'}
+					onclick={() => goto('/agenda')}
 					class="text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
 				>
 					Ver Agenda

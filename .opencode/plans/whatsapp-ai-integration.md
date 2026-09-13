@@ -1,35 +1,54 @@
-# Plano: WhatsApp Business API + AI + Automação — Amasoft CRM
+# Plano: WhatsApp (Evolution API) + AI + Automação — Amasoft CRM
 
 **Data:** 2026-09-13
 **Estado:** Aguarda aprovação da equipa
 
 ## Resumo
 
-Integrar WhatsApp Business API oficial (Meta Cloud API via Twilio/360dialog) + AI (Vercel AI SDK + OpenAI/Groq) no CRM Amasoft. Funcionalidades: gestão de contactos WhatsApp, envio automático de mensagens por estágio, AI para geração de mensagens e scoring de leads.
+Integrar **Evolution API** (open-source, self-hosted, Baileys/WhatsApp Web) + AI (Vercel AI SDK + OpenAI/Groq) no CRM Amasoft. Sem aprovação Meta, sem custos por mensagem, sem dependência de Twilio.
 
-**Custo estimado:** $4-15/mês (200 mensagens WhatsApp + 100 mensagens AI)
+**Custo estimado:** $6-13/mês (hosting Evolution API + AI)
+
+## Porquê Evolution API (não oficial)
+
+| | Meta Cloud API / Twilio | Evolution API |
+|---|---|---|
+| Aprovação Meta | Obrigatória | Não precisa |
+| Custo por mensagem | $0.005-$0.085/msg | **Grátis** (Baileys) |
+| Hosting | SaaS gerido | Self-hosted (Docker) |
+| Setup | Dias/semanas | 5 minutos |
+| QR Code pairing | Não suporta | Sim |
+| Multi-instance | Limitado | Sim |
+
+**Custo total:** Railway/Render ~$5-10/mês (flat) vs Meta $3-12 + Twilio fees
+
+---
 
 ## Dependências novas
 
 ```bash
-bun add ai @ai-sdk/openai twilio zod
+bun add ai @ai-sdk/openai zod
 ```
 
 | Pacote | Para quê |
 |---|---|
 | `ai` (Vercel AI SDK) | Framework AI unificado para SvelteKit |
 | `@ai-sdk/openai` | Provider OpenAI (GPT-4o-mini) |
-| `twilio` | Cliente WhatsApp Business API oficial |
 | `zod` | Validação de schemas para AI structured output |
+
+**Nota:** Evolution API é externa — não precisamos de instalar nada. Comunicamos via REST.
+
+---
 
 ## Variáveis de ambiente (`.env`)
 
 ```
-WHATSAPP_PROVIDER=twilio
-WHATSAPP_ACCOUNT_SID=AC...
-WHATSAPP_AUTH_TOKEN=...
-WHATSAPP_PHONE_NUMBER_ID=...
-WHATSAPP_FROM_NUMBER=+244...
+# Evolution API
+EVOLUTION_API_URL=http://localhost:8080
+EVOLUTION_API_KEY=sua-api-key
+EVOLUTION_INSTANCE=amasoft-crm
+
+# AI
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 ```
@@ -49,10 +68,11 @@ whatsappMessageCount: number;    // Contador de mensagens enviadas
 // Mensagem WhatsApp
 interface WhatsAppMessage {
   id: string;
+  remoteMsgId?: string;          // ID retornado pela Evolution API
   leadId: string;
   direction: 'outbound' | 'inbound';
   content: string;
-  templateId?: string;
+  templateName?: string;         // Nome do template enviado
   status: 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
   sentAt: string;
   deliveredAt?: string;
@@ -60,14 +80,16 @@ interface WhatsAppMessage {
   errorMessage?: string;
 }
 
-// Config WhatsApp
+// Config WhatsApp (Evolution API)
 interface WhatsAppConfig {
   enabled: boolean;
-  provider: 'twilio' | '360dialog';
-  phoneNumberId: string;
-  accessToken: string;
-  webhookSecret: string;
-  defaultAutoReply: boolean;
+  apiUrl: string;                // URL da instância Evolution API
+  apiKey: string;                // API key global
+  instanceName: string;          // Nome da instância (ex: amasoft-crm)
+  instanceConnected: boolean;    // Estado da conexão WhatsApp
+  qrcodeUrl: string | null;      // URL do QR code para pairing
+  webhookUrl: string;            // URL do webhook para receber mensagens
+  defaultAutoReply: boolean;     // Auto-resposta com AI ligada
 }
 
 // Automação de envio
@@ -75,8 +97,9 @@ interface MessageAutomation {
   id: string;
   name: string;
   trigger: 'stage-change' | 'schedule' | 'stale' | 'manual';
-  triggerValue?: string;
-  templateId: string;
+  triggerValue?: string;         // Ex: "meeting" para stage-change
+  templateName?: string;         // Template Evolution API (opcional)
+  customMessage: string;         // Mensagem personalizada (usada se sem template)
   enabled: boolean;
   lastRun?: string;
 }
@@ -92,7 +115,7 @@ interface AIConfig {
 
 ### Persistência
 
-- `src/lib/server/whatsapp.ts` — cliente API (funções: `sendTemplateMessage`, `sendTextMessage`, `getMessageStatus`, `validateWebhook`)
+- `src/lib/server/whatsapp.ts` — cliente Evolution API (REST, funções: `sendText`, `sendTemplate`, `sendMedia`, `getConnectionStatus`, `getQRCode`)
 - `src/lib/server/ai.ts` — funções AI (`generateFollowUp`, `scoreLead`, `suggestNextAction`, `generateAutoReply`)
 
 ---
@@ -101,12 +124,14 @@ interface AIConfig {
 
 | Rota | Método | Função |
 |---|---|---|
-| `/api/whatsapp/config` | GET/POST | Ler/guardar config WhatsApp |
-| `/api/whatsapp/send` | POST | Enviar mensagem (template ou texto) |
+| `/api/whatsapp/config` | GET/POST | Ler/guardar config Evolution API |
+| `/api/whatsapp/connect` | POST | Criar instância + obter QR code |
+| `/api/whatsapp/disconnect` | POST | Desligar instância |
+| `/api/whatsapp/send` | POST | Enviar mensagem (texto, template, ou imagem) |
 | `/api/whatsapp/send/batch` | POST | Enviar para vários leads |
 | `/api/whatsapp/send/scheduled` | POST | Agendar envio para data/hora |
-| `/api/whatsapp/webhook` | POST | Receber webhooks Meta (entregues, lidos, recebidos) |
-| `/api/whatsapp/status` | GET | Estado de uma mensagem |
+| `/api/whatsapp/webhook` | POST | Receber webhooks Evolution API (entregues, lidos, recebidos) |
+| `/api/whatsapp/status` | GET | Estado da conexão + de uma mensagem |
 | `/api/ai/generate` | POST | Gerar mensagem com AI |
 | `/api/ai/score` | POST | Score AI de um lead |
 | `/api/ai/suggest` | POST | Sugerir próxima ação |
@@ -127,6 +152,8 @@ class WhatsAppState {
   isSending = $state<boolean>(false);
   isConfigOpen = $state<boolean>(false);
   isBatchModalOpen = $state<boolean>(false);
+  connectionStatus = $state<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  qrcode = $state<string | null>(null);
 
   // Derivados
   messagesByLead = $derived(...);
@@ -134,9 +161,11 @@ class WhatsAppState {
   automationStats = $derived(...);
 
   // Ações
-  sendMessage(leadId, templateId, customText?) → result
-  sendBatch(leads[], templateId, customText?) → result
-  scheduleMessage(leadId, templateId, datetime) → result
+  connect() → { qrcodeUrl }                          // Criar instância + QR
+  disconnect() → void
+  sendMessage(leadId, content, options?) → result
+  sendBatch(leads[], content, options?) → result
+  scheduleMessage(leadId, content, datetime) → result
   handleWebhook(payload) → void
   saveConfig(config) → void
   toggleAutomation(id) → void
@@ -179,8 +208,8 @@ Estágio: {stage}. Histórico: {lastNotes}.
 
 | Componente | Descrição |
 |---|---|
-| `WhatsAppConfigModal.svelte` | Configuração da API (provider, tokens, número) |
-| `WhatsAppPanel.svelte` | Painel de conversa com timeline de mensagens |
+| `WhatsAppConfigModal.svelte` | Config Evolution API + botão conectar/desconectar + QR code |
+| `WhatsAppPanel.svelte` | Painel de conversa com timeline de mensagens + envio |
 | `BatchSendModal.svelte` | Envio em lote com seleção de leads + preview |
 | `ScheduleMessageModal.svelte` | Agendamento de envio com date/time picker |
 | `AISuggestionCard.svelte` | Card com sugestão AI no Dashboard/LeadDrawer |
@@ -191,7 +220,7 @@ Estágio: {stage}. Histórico: {lastNotes}.
 - **LeadDrawer** — nova aba "WhatsApp API" com timeline de mensagens, botão "Enviar com AI", toggle opt-in
 - **DashboardView** — KPIs: mensagens enviadas hoje, taxa de resposta, sugestões AI pendentes
 - **KanbanView** — botão "Auto-enviar" por coluna
-- **Sidebar** — acesso a config WhatsApp e AI
+- **Sidebar** — acesso a config WhatsApp e AI, indicador de conexão
 
 ---
 
@@ -201,7 +230,7 @@ Estágio: {stage}. Histórico: {lastNotes}.
 
 | Trigger | Ação | Exemplo |
 |---|---|---|
-| `stage-change` | Enviar template quando lead muda de estágio | lead→meeting: "Convite para Reunião" |
+| `stage-change` | Enviar quando lead muda de estágio | lead→meeting: "Convite para Reunião" |
 | `schedule` | Enviar em data/hora agendada | Follow-up em 3 dias |
 | `stale` | Enviar quando lead sem contacto há X dias | 14 dias: "Reativação" |
 | `overdue` | Enviar quando follow-up está atrasado | 1 dia atrasado: "Acompanhamento" |
@@ -210,7 +239,7 @@ Estágio: {stage}. Histórico: {lastNotes}.
 ### Fluxo
 ```
 Trigger → Verificar regra ativa → Verificar opt-in
-→ Gerar/template mensagem → Enviar via API → Registar
+→ Gerar/template mensagem → Enviar via Evolution API → Registar
 → Atualizar lastWhatsAppSent → Log nota no lead
 ```
 
@@ -222,7 +251,7 @@ Trigger → Verificar regra ativa → Verificar opt-in
 
 | Ficheiro | Conteúdo |
 |---|---|
-| `data/whatsapp-config.json` | Config da API WhatsApp |
+| `data/whatsapp-config.json` | Config Evolution API (url, key, instance) |
 | `data/whatsapp-messages.json` | Histórico de mensagens |
 | `data/message-automations.json` | Regras de automação |
 | `data/ai-config.json` | Config da API AI |
@@ -239,15 +268,60 @@ getAIConfig() / saveAIConfig()
 
 ## Fase 8 — Webhook Handler (futura)
 
-**`/api/whatsapp/webhook`** — recebe do Meta:
+**`/api/whatsapp/webhook`** — recebe da Evolution API:
 
 ```ts
-// GET — verificação do webhook (hub.challenge)
 // POST — receber updates:
-//   - message.read → atualizar readAt
-//   - message.delivered → atualizar deliveredAt
-//   - message.status → atualizar status
-//   - message.received → criar nota inbound + AI auto-reply se ligado
+//   - messages.upsert → mensagem recebida (inbound)
+//   - messages.update → status alterado (sent/delivered/read)
+//   - connection.update → estado da conexão mudou
+```
+
+### Setup webhook na Evolution API
+```
+POST {EVOLUTION_API_URL}/webhook/set/{instanceName}
+{
+  "webhook": {
+    "enabled": true,
+    "url": "https://crm.amasoft.ao/api/whatsapp/webhook",
+    "events": ["messages.upsert", "messages.update", "connection.update"]
+  }
+}
+```
+
+---
+
+## Deploy Evolution API (Docker)
+
+### Opção 1: Railway (recomendado, $5-10/mês)
+```bash
+# Railway template pronto
+railway init
+railway add evoapicloud/evolution-api
+```
+
+### Opção 2: Docker self-hosted
+```bash
+docker pull evoapicloud/evolution-api:latest
+
+docker run -d \
+  --name evolution-api \
+  -p 8080:8080 \
+  -v evolution_data:/evolution/instances \
+  -e SERVER_URL=https://evo.amasoft.ao \
+  -e AUTHENTICATION_API_KEY=sua-api-key \
+  -e DATABASE_PROVIDER=postgresql \
+  -e DATABASE_CONNECTION_URI=postgresql://... \
+  evoapicloud/evolution-api:latest
+```
+
+### Variáveis de ambiente Evolution API
+```
+SERVER_URL=https://evo.amasoft.ao
+AUTHENTICATION_API_KEY=sua-api-key
+DATABASE_PROVIDER=postgresql
+DATABASE_CONNECTION_URI=postgresql://user:pass@host:5432/evolution
+CACHE_REDIS_ENABLED=false
 ```
 
 ---
@@ -256,10 +330,14 @@ getAIConfig() / saveAIConfig()
 
 | Item | Custo/mês |
 |---|---|
-| Twilio (plataforma) | $0 (pay per use) |
-| Meta mensagens (200 msgs) | $3-12 |
+| Evolution API (Docker/Railway) | $5-10 (flat) |
+| WhatsApp mensagens (Baileys) | **$0** |
 | OpenAI GPT-4o-mini (100 msgs AI) | $1-3 |
-| **Total** | **$4-15/mês** |
+| **Total** | **$6-13/mês** |
+
+Comparação: Meta Cloud API + Twilio = $4-15/mês + per-message fees
+
+---
 
 ## Ficheiros criados/modificados
 
