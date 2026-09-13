@@ -65,6 +65,28 @@ export interface CRMStats {
 	conversionRate: number;
 	missingWebsiteCount: number;
 	withPhoneCount: number;
+	missingPhoneCount: number;
 	topCities: { city: string; count: number }[];
 	topCategories: { category: string; count: number }[];
+}
+
+export interface RawClientData {
+	title: string;
+	categories?: string[];
+	categoryName?: string;
+	address?: string | null;
+	neighborhood?: string | null;
+	street?: string | null;
+	city?: string | null;
+	postalCode?: string | null;
+	state?: string | null;
+	countryCode?: string | null;
+	website?: string | null;
+	phone?: string | null;
+	phoneUnformatted?: string | null;
+	location?: {
+		lat: number;
+		lng: number;
+	} | null;
+	plusCode?: string | null;
 }

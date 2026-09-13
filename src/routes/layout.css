@@ -1,1 +1,29 @@
 @import 'tailwindcss';
+
+@layer base {
+	:root {
+		color-scheme: dark;
+	}
+
+	body {
+		background-color: #090a0f;
+		color: #f1f5f9;
+		font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+	}
+
+	/* Sleek scrollbar for enterprise look */
+	::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	::-webkit-scrollbar-thumb {
+		background: #27272a;
+		border-radius: 9999px;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background: #3f3f46;
+	}
+}
