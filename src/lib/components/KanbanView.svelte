@@ -16,6 +16,17 @@
 		{ id: 'lost', title: 'Desqualificados', dot: 'bg-zinc-500' }
 	];
 
+	// Pre-compute leads by status (single pass instead of 6x filter in template)
+	let leadsByStatus = $derived.by(() => {
+		const map: Record<LeadStatus, ClientLead[]> = {
+			lead: [], contacted: [], meeting: [], proposal: [], won: [], lost: []
+		};
+		for (const lead of crmStore.filteredLeads) {
+			map[lead.status].push(lead);
+		}
+		return map;
+	});
+
 	let draggedLeadId = $state<string | null>(null);
 
 	function handleDragStart(e: DragEvent, leadId: string) {
@@ -89,8 +100,8 @@
 
 	<!-- Kanban Columns Grid -->
 	<div class="flex xl:grid xl:grid-cols-6 gap-3.5 items-start overflow-x-auto xl:overflow-visible pb-2 xl:pb-0">
-		{#each columns as col}
-			{@const colLeads = crmStore.filteredLeads.filter(l => l.status === col.id)}
+		{#each columns as col (col.id)}
+			{@const colLeads = leadsByStatus[col.id]}
 			{@const colValue = colLeads.reduce((acc, l) => acc + (l.estimatedValue || 0), 0)}
 
 			<div

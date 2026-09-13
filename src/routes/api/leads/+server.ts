@@ -1,10 +1,29 @@
 import type { RequestHandler } from './$types';
 import { getLeads, saveLeads } from '#lib/server/db.ts';
 import type { ClientLead } from '#lib/types/crm.ts';
+import crypto from 'node:crypto';
 
-export const GET: RequestHandler = async () => {
+function computeEtag(data: ClientLead[]): string {
+	const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
+	return `"${hash}"`;
+}
+
+export const GET: RequestHandler = async ({ request }) => {
 	const leads = getLeads();
-	return Response.json(leads);
+	const etag = computeEtag(leads);
+
+	const ifNoneMatch = request.headers.get('if-none-match');
+	if (ifNoneMatch && ifNoneMatch === etag) {
+		return new Response(null, { status: 304 });
+	}
+
+	return new Response(JSON.stringify(leads), {
+		headers: {
+			'Content-Type': 'application/json',
+			'ETag': etag,
+			'Cache-Control': 'no-cache'
+		}
+	});
 };
 
 export const POST: RequestHandler = async ({ request }) => {

@@ -9,6 +9,9 @@ const DB_FILE = path.join(DB_DIR, 'crm-database.json');
 const COMPANY_FILE = path.join(DB_DIR, 'company-profile.json');
 const TEAM_FILE = path.join(DB_DIR, 'team-members.json');
 
+// In-memory cache — avoids fs.readFileSync on every request
+let _leadsCache: ClientLead[] | null = null;
+
 // Ensure data directory exists
 function ensureDbExists(): void {
 	if (!fs.existsSync(DB_DIR)) {
@@ -21,22 +24,26 @@ function ensureDbExists(): void {
 }
 
 export function getLeads(): ClientLead[] {
+	if (_leadsCache) return _leadsCache;
 	ensureDbExists();
 	try {
 		const raw = fs.readFileSync(DB_FILE, 'utf-8');
 		const parsed = JSON.parse(raw);
 		if (Array.isArray(parsed) && parsed.length > 0) {
+			_leadsCache = parsed;
 			return parsed;
 		}
 	} catch (e) {
 		console.error('Error reading crm-database.json:', e);
 	}
+	_leadsCache = INITIAL_LEADS;
 	return INITIAL_LEADS;
 }
 
 export function saveLeads(leads: ClientLead[]): boolean {
 	ensureDbExists();
 	try {
+		_leadsCache = leads;
 		fs.writeFileSync(DB_FILE, JSON.stringify(leads, null, 2), 'utf-8');
 		return true;
 	} catch (e) {
@@ -47,6 +54,7 @@ export function saveLeads(leads: ClientLead[]): boolean {
 
 export function resetLeads(): ClientLead[] {
 	ensureDbExists();
+	_leadsCache = INITIAL_LEADS;
 	fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_LEADS, null, 2), 'utf-8');
 	return INITIAL_LEADS;
 }
