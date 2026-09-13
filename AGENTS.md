@@ -1,95 +1,38 @@
-# Amasoft CRM — Especificação Técnica & Conhecimento do Sistema
+# AGENTS.md — Amasoft CRM
 
-## 1. Configuração do Projeto
+B2B sales-pipeline CRM for Angola. SvelteKit + Svelte 5 (runes), TypeScript strict, TailwindCSS 4, Bun, `adapter-node`. Currency AOA/Kz, locale pt-AO.
 
-- **Linguagem**: TypeScript (Strict Mode)
-- **Framework**: SvelteKit 3 com Svelte 5 (Runes: `$state`, `$derived`, `$effect`, `$props`)
-- **Gestor de Pacotes**: Bun
-- **Estilos**: TailwindCSS 4 (Tema Escuro Corporativo B2B Minimalista)
-- **Localização / Moeda**: Angola (AOA - Kwanzas / pt-AO / +244)
+## Commands (Bun)
 
----
+- Install: `bun install`
+- Dev: `bun run dev` → `http://localhost:5173`
+- Typecheck: `bun run check` (`svelte-kit sync && svelte-check`)
+- Build: `bun run build` / preview: `bun run preview`
+- No test runner, no linter/formatter config. Verify with `bun run check` + `bun run build`.
 
-## 2. Regras de Design, UX e Diretrizes Rígidas
+## Architecture
 
-1. **PROIBIDO USO DE EMOJIS**:
-   - Nunca utilizar emojis em botões, rótulos, cabeçalhos, tabelas, menus ou badges.
-   - Utilizar exclusivamente os ícones vetoriais SVG do componente [`src/lib/components/Icon.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Icon.svelte).
+- Entrypoint: `src/routes/+page.svelte`; API under `src/routes/api/leads/` (`GET`/`POST /api/leads`, `POST /api/leads/reset`, `GET /api/leads/export/original`).
+- Source of truth: `src/lib/types/crm.ts` (`ClientLead`, `LeadStatus = lead|contacted|meeting|proposal|won|lost`, `LeadPriority = hot|warm|cold`).
+- Seed: `src/lib/data/clientes.json` → `src/lib/data/initial-leads.ts` (`INITIAL_LEADS`).
+- Persistence: `src/lib/server/db.ts` reads/writes `data/crm-database.json` (committed; auto-created from `INITIAL_LEADS` if missing).
+- Client state: `src/lib/stores/crm.svelte.ts` (`crmStore`, class with `$state`/`$derived`). Load order: `GET /api/leads` → `localStorage: amasoft_crm_leads_v2` → `INITIAL_LEADS`. Every mutation calls `saveToStorage()` (localStorage + `POST /api/leads`).
+- Toasts: `src/lib/stores/toast.svelte.ts`. Icons: `src/lib/components/Icon.svelte`.
+- OpenCode Svelte plugin active (`.opencode/opencode.json`); use Svelte MCP `svelte-autofixer` to validate `.svelte` edits.
 
-2. **PROIBIDO `alert()`, `confirm()` ou `prompt()` NATIVOS DO BROWSER**:
-   - É estritamente proibido o uso de diálogos nativos do JavaScript (considerados deselegantes e pouco profissionais).
-   - Todas as confirmações de exclusão, restauração ou ações críticas devem usar modais dedicados com tabela de pré-visualização ou confirmação em 2 passos.
-   - Feedbacks e alertas visuais usam a store de toasts [`src/lib/stores/toast.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/toast.svelte.ts).
+## Svelte / Vite quirks
 
-3. **COMPORTAMENTO DE MODAIS**:
-   - O backdrop (fundo escuro) não deve fechar a janela ao clicar acidentalmente fora.
-   - Modais fecham única e exclusivamente ao clicar no botão **"Cancelar"**, no ícone **"X"** superior ou ao concluir com sucesso a ação pretendida.
+- `vite.config.ts` forces runes mode for all non-`node_modules` files and enables `experimental.async` + `remoteFunctions`. Do not remove/alter; write new components with runes (`$state`, `$derived`, `$effect`, `$props`), no legacy stores/slots.
+- Key views live in `src/lib/components/`: `DashboardView`, `KanbanView` (HTML5 drag-and-drop), `TableView`, `MapView`, `LeadDrawer`, `AddLeadModal`, `ImportLeadsModal`, `PurgeNoPhoneModal`, `ResetConfirmModal`.
 
-4. **ESTADO INICIAL LIMPO (ZEROED OUT)**:
-   - Todo o conjunto de dados inicial e novos registos iniciam com:
-     - `status`: `'lead'` (Novo Lead)
-     - `notes`: `[]` (Sem notas pré-fabricadas ou fictícias)
-     - `estimatedValue`: `0` (0 Kz, valores só existem quando atribuídos pelo utilizador)
-     - `priority`: `'hot'` (com telefone e sem site), `'warm'` (com telefone e com site), `'cold'` (sem telefone)
+## Hard UX rules
 
----
+- No emojis anywhere in UI — use `Icon.svelte` SVGs only.
+- Never `alert()` / `confirm()` / `prompt()` — use the dedicated modals + toasts.
+- Modal backdrop click must NOT close; close only via Cancel / `X` / success action.
+- Import (`ImportLeadsModal`) must keep schema validation, title/phone-unformatted duplicate detection, preview table, skip-duplicates option. Destructive batch actions (`PurgeNoPhoneModal`, `ResetConfirmModal`) require preview-table confirmation.
 
-## 3. Arquitetura de Dados & Persistência
+## Data conventions
 
-### 3.1. Base de Dados Atual (JSON Centralizado no Servidor)
-- Ficheiro ativo: [`data/crm-database.json`](file:///home/anvima/projectos/amasoft_crm/data/crm-database.json)
-- Módulo servidor: [`src/lib/server/db.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/server/db.ts)
-- Endpoints API:
-  - `GET /api/leads`: Carrega os leads da base persistente do servidor.
-  - `POST /api/leads`: Salva as alterações na base do servidor.
-  - `POST /api/leads/reset`: Restaura a base original com 100 leads limpos.
-  - `GET /api/leads/export/original`: Download direto no formato de 14 campos.
-
-### 3.2. Store Reativa do CRM
-- Localização: [`src/lib/stores/crm.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/crm.svelte.ts)
-- Baseada nas Runes do Svelte 5 com sincronização bidirecional (Server API + cache `localStorage: amasoft_crm_leads_v2`).
-- Métricas derivadas automáticas (`stats`): contagem por estágio, prioridade, valor total em pipeline, taxa de conversão, contas sem website/telefone, distribuição por províncias/setores.
-
-### 3.3. Esquema de Dados (14 Campos Nativos)
-- `title` (string)
-- `categoryName` (string)
-- `categories` (string[])
-- `address`, `neighborhood`, `street`, `city`, `postalCode`, `state`, `countryCode` (strings / null)
-- `website`, `phone`, `phoneUnformatted` (strings / null)
-- `location` ({ lat: number, lng: number } | null)
-- `plusCode` (string | null)
-- **Extensões CRM**: `status`, `priority`, `estimatedValue`, `tags`, `notes`, `lastContactDate`, `nextFollowUpDate`.
-
----
-
-## 4. Módulos e Componentes do Sistema
-
-| Componente | Função e Recursos |
-| :--- | :--- |
-| [`Sidebar.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Sidebar.svelte) | Navegação lateral profissional, contadores em tempo real, filtros estratégicos (Sem Website, Alta Prioridade, Fechados), botão de purga sem telefone, widget de pipeline, atalhos de importação/exportação/restauração. |
-| [`Header.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Header.svelte) | Barra superior limpa com breadcrumbs, busca global, indicador de salvamento automático no servidor, botão de importação, menu de exportação (formato original vs CRM completo) e CTA "Adicionar Empresa". |
-| [`DashboardView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/DashboardView.svelte) | Painel executivo com KPIs (Total Contas, Oportunidades Quentes, Pipeline Kz, Taxa de Conversão), funil de vendas, oportunidades sem website (alvos prioritários) e top províncias. |
-| [`KanbanView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/KanbanView.svelte) | Pipeline comercial interativo com 5 colunas (`Novo Lead`, `Em Contacto`, `Qualificação`, `Proposta`, `Fechado`), drag-and-drop nativo HTML5, somatório em Kz por coluna e botão de WhatsApp direto. |
-| [`TableView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/TableView.svelte) | Diretório tabular com multi-filtros, ordenação, troca rápida de estágio, e paginação avançada (seletor de registos 10/20/50/100/Todas, salto direto por pílulas numéricas, input "Ir para página", botões primeira/última página). |
-| [`MapView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/MapView.svelte) | Vista geográfica da cobertura de empresas por província em Angola com links diretos para o Google Maps. |
-| [`LeadDrawer.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/LeadDrawer.svelte) | Painel lateral deslizante com ficha completa, gerador de mensagens WhatsApp B2B corporativas personalizadas, histórico de notas/atividades cronológicas e exclusão individual com confirmação. |
-| [`AddLeadModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/AddLeadModal.svelte) | Modal de cadastro manual de novas empresas (valor estimado por defeito a 0 Kz, fechamento restrito a Cancelar/X). |
-| [`ImportLeadsModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ImportLeadsModal.svelte) | Modal de importação com drag-and-drop de arquivos `.json`, validação de esquema, deteção inteligente de duplicados por nome/telefone, tabela de pré-visualização e opção de anti-duplicação. |
-| [`PurgeNoPhoneModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/PurgeNoPhoneModal.svelte) | Modal corporativo com tabela de pré-visualização de todas as contas sem telefone antes de efetuar a exclusão em lote. |
-| [`ResetConfirmModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ResetConfirmModal.svelte) | Modal de segurança para reposição limpa da base de dados. |
-| [`ToastContainer.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ToastContainer.svelte) | Sistema de notificações toast contextuais não-bloqueantes (`success`, `error`, `info`). |
-
----
-
-## 5. Ferramentas Svelte MCP
-
-O Agente tem acesso ao servidor Svelte MCP com documentação oficial do Svelte 5 / SvelteKit:
-- **`list-sections`**: Para descobrir tópicos de documentação disponíveis.
-- **`get-documentation`**: Para carregar detalhes técnicos aprofundados.
-- **`svelte-autofixer`**: Analisador estático para validar código Svelte antes de entregar.
-- **`playground-link`**: Gerador de links playground (apenas sob confirmação explícita).
-
----
-
-## 6. Próxima Etapa Técnica (Roadmap)
-- Transição da persistência em `data/crm-database.json` para SQLite com Prisma ORM mantendo a mesma API e tipos já estabelecidos.
+- New/imported/reset leads are always zeroed: `status: 'lead'`, `notes: []`, `estimatedValue: 0`. Priority is derived, never free choice at creation: phone + no website → `hot`; phone + website → `warm`; no phone → `cold`. Tags follow the same signals (`Sem Website`/`Com Website`, `Telefone Válido`, city).
+- `exportOriginalFormat` (client + server) must strip CRM extensions and emit exactly the 14 native fields; full `exportToJSON` keeps everything.
