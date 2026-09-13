@@ -17,7 +17,7 @@
 		}).format(value).replace('AOA', 'Kz');
 	}
 
-	function navigateTo(view: 'dashboard' | 'kanban' | 'table' | 'map') {
+	function navigateTo(view: 'dashboard' | 'kanban' | 'table' | 'map' | 'agenda') {
 		crmStore.activeView = view;
 		onCloseMobile();
 	}
@@ -152,6 +152,22 @@
 					<span>Cobertura Territorial</span>
 				</div>
 				<span class="text-[10px] text-zinc-400">Angola</span>
+			</button>
+
+			<button
+				type="button"
+				onclick={() => navigateTo('agenda')}
+				class="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-colors cursor-pointer {crmStore.activeView === 'agenda' ? 'bg-zinc-800/90 text-white font-semibold' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}"
+			>
+				<div class="flex items-center gap-2.5">
+					<Icon name="calendar" class="w-4 h-4 text-zinc-400" />
+					<span>Agenda</span>
+				</div>
+				{#if crmStore.followUpCounts.dueNow > 0}
+					<span class="rounded bg-rose-950/60 px-1.5 py-0.2 text-[10px] font-mono text-rose-300 border border-rose-900/40">
+						{crmStore.followUpCounts.dueNow}
+					</span>
+				{/if}
 			</button>
 		</div>
 

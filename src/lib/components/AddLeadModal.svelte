@@ -13,9 +13,22 @@
 	let priority = $state<LeadPriority>('hot');
 	let estimatedValue = $state<number>(0);
 
+	let isExpandedOptional = $state<boolean>(false);
+	let decisionMaker = $state('');
+	let email = $state('');
+	let assignedTo = $state('');
+	let emailError = $state('');
+	let nextFollowUp = $state('');
+
 	function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (!title.trim()) return;
+
+		if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+			emailError = 'Email inválido';
+			return;
+		}
+		emailError = '';
 
 		crmStore.addLead({
 			title: title.trim(),
@@ -38,7 +51,10 @@
 			estimatedValue: Number(estimatedValue) || 0,
 			tags: [categoryName, city, !website ? 'Sem Website' : 'Com Website'],
 			lastContactDate: null,
-			nextFollowUpDate: null
+			nextFollowUpDate: nextFollowUp || null,
+			decisionMaker: decisionMaker.trim() || undefined,
+			email: email.trim() || undefined,
+			assignedTo: assignedTo.trim() || undefined
 		});
 
 		// Reset & Close
@@ -47,6 +63,11 @@
 		website = '';
 		address = '';
 		estimatedValue = 0;
+		decisionMaker = '';
+		email = '';
+		assignedTo = '';
+		nextFollowUp = '';
+		isExpandedOptional = false;
 		crmStore.isAddModalOpen = false;
 	}
 </script>
@@ -188,6 +209,71 @@
 						/>
 					</div>
 				</div>
+
+				<!-- Optional fields toggle -->
+				<button
+					type="button"
+					onclick={() => isExpandedOptional = !isExpandedOptional}
+					class="w-full flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors cursor-pointer"
+				>
+					<Icon name="chevron-down" class="w-3.5 h-3.5 {isExpandedOptional ? 'rotate-180' : ''} transition-transform" />
+					<span>Dados comerciais (opcional)</span>
+				</button>
+
+				{#if isExpandedOptional}
+					<div class="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/20 p-3">
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label for="new-decision" class="block text-[11px] font-medium text-zinc-400 mb-1">Decisor</label>
+								<input
+									id="new-decision"
+									type="text"
+									bind:value={decisionMaker}
+									placeholder="Nome do decisor..."
+									class="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+								/>
+							</div>
+							<div>
+								<label for="new-email" class="block text-[11px] font-medium text-zinc-400 mb-1">Email</label>
+								<input
+									id="new-email"
+									type="email"
+									bind:value={email}
+									placeholder="Ex: contacto@empresa.co.ao"
+									class="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+								/>
+								{#if emailError}
+									<p class="mt-1 text-[11px] text-rose-400">{emailError}</p>
+								{/if}
+							</div>
+						</div>
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label for="new-assigned" class="block text-[11px] font-medium text-zinc-400 mb-1">Responsável</label>
+								<select
+									id="new-assigned"
+									bind:value={assignedTo}
+									class="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-zinc-200 focus:border-zinc-600 focus:outline-none"
+								>
+									<option value="">Sem responsável</option>
+									<option value="Eu">Eu</option>
+									{#each crmStore.availableAssignees as a}
+										<option value={a}>{a}</option>
+									{/each}
+								</select>
+							</div>
+							<div>
+								<label for="new-followup" class="block text-[11px] font-medium text-zinc-400 mb-1">Próximo acompanhamento</label>
+								<input
+									id="new-followup"
+									type="date"
+									bind:value={nextFollowUp}
+									class="w-full rounded-md bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-zinc-200 focus:border-zinc-600 focus:outline-none"
+								/>
+							</div>
+						</div>
+					</div>
+				{/if}
 
 				<div class="flex justify-end gap-2 pt-3 border-t border-zinc-800">
 					<button

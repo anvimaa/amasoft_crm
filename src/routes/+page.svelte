@@ -6,6 +6,7 @@
 	import KanbanView from '#lib/components/KanbanView.svelte';
 	import TableView from '#lib/components/TableView.svelte';
 	import MapView from '#lib/components/MapView.svelte';
+	import AgendaView from '#lib/components/AgendaView.svelte';
 	import LeadDrawer from '#lib/components/LeadDrawer.svelte';
 	import AddLeadModal from '#lib/components/AddLeadModal.svelte';
 	import PurgeNoPhoneModal from '#lib/components/PurgeNoPhoneModal.svelte';
@@ -51,6 +52,8 @@
 				<TableView />
 			{:else if crmStore.activeView === 'map'}
 				<MapView />
+			{:else if crmStore.activeView === 'agenda'}
+				<AgendaView />
 			{/if}
 		</main>
 	</div>

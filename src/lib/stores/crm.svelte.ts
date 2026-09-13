@@ -1,12 +1,34 @@
-import type { ClientLead, CRMFilterOptions, CRMStats, LeadPriority, LeadStatus, Note, RawClientData } from '../types/crm';
+import type { ClientLead, CRMFilterOptions, CRMStats, FollowUpGroups, InteractionOutcome, LeadPriority, LeadStatus, Note, NoteType, RawClientData } from '../types/crm';
 import { INITIAL_LEADS } from '../data/initial-leads';
 
 const STORAGE_KEY = 'amasoft_crm_leads_v2';
 
+const STALE_AFTER_DAYS = 14;
+
+function toLocalDay(value: string | null): Date | null {
+	if (!value) return null;
+	try {
+		// date input (YYYY-MM-DD) -> local midnight to avoid TZ shift
+		const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+		if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+		const d = new Date(value);
+		if (isNaN(d.getTime())) return null;
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+	} catch {
+		return null;
+	}
+}
+
+function startOfToday(): Date {
+	const d = new Date();
+	d.setHours(0, 0, 0, 0);
+	return d;
+}
+
 class CRMState {
 	leads = $state<ClientLead[]>([]);
 	selectedLead = $state<ClientLead | null>(null);
-	activeView = $state<'dashboard' | 'kanban' | 'table' | 'map'>('dashboard');
+	activeView = $state<'dashboard' | 'kanban' | 'table' | 'map' | 'agenda'>('dashboard');
 	isDrawerOpen = $state<boolean>(false);
 	isAddModalOpen = $state<boolean>(false);
 	isPurgeModalOpen = $state<boolean>(false);
@@ -273,6 +295,69 @@ class CRMState {
 		return Array.from(cats).sort();
 	});
 
+	availableAssignees = $derived.by(() => {
+		const set = new Set<string>();
+		for (const lead of this.leads) {
+			const a = (lead.assignedTo || '').trim();
+			if (a) set.add(a);
+		}
+		return Array.from(set).sort((x, y) => x.localeCompare(y));
+	});
+
+	// Agenda groups based on nextFollowUpDate (won/lost excluded)
+	followUpGroups = $derived.by<FollowUpGroups>(() => {
+		const groups: FollowUpGroups = { overdue: [], today: [], tomorrow: [], next7: [], unscheduled: [] };
+		const today = startOfToday();
+		for (const lead of this.leads) {
+			if (lead.status === 'won' || lead.status === 'lost') continue;
+			const day = toLocalDay(lead.nextFollowUpDate);
+			if (!day) {
+				if (lead.status === 'contacted' || lead.status === 'meeting' || lead.status === 'proposal') {
+					groups.unscheduled.push(lead);
+				}
+				continue;
+			}
+			const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
+			if (diff < 0) groups.overdue.push(lead);
+			else if (diff === 0) groups.today.push(lead);
+			else if (diff === 1) groups.tomorrow.push(lead);
+			else if (diff <= 7) groups.next7.push(lead);
+		}
+		const byDate = (a: ClientLead, b: ClientLead) =>
+			(toLocalDay(a.nextFollowUpDate)?.getTime() ?? 0) - (toLocalDay(b.nextFollowUpDate)?.getTime() ?? 0);
+		groups.overdue.sort(byDate);
+		groups.today.sort(byDate);
+		groups.tomorrow.sort(byDate);
+		groups.next7.sort(byDate);
+		groups.unscheduled.sort((a, b) => (a.lastContactDate ?? '').localeCompare(b.lastContactDate ?? ''));
+		return groups;
+	});
+
+	followUpCounts = $derived.by(() => {
+		const g = this.followUpGroups;
+		return {
+			overdue: g.overdue.length,
+			today: g.today.length,
+			tomorrow: g.tomorrow.length,
+			next7: g.next7.length,
+			unscheduled: g.unscheduled.length,
+			dueNow: g.overdue.length + g.today.length
+		};
+	});
+
+	// Active pipeline leads without recent contact
+	staleLeads = $derived.by<ClientLead[]>(() => {
+		const cutoff = Date.now() - STALE_AFTER_DAYS * 86400000;
+		return this.leads
+			.filter((l) => {
+				if (l.status !== 'contacted' && l.status !== 'meeting' && l.status !== 'proposal') return false;
+				if (!l.lastContactDate) return true;
+				const t = new Date(l.lastContactDate).getTime();
+				return isNaN(t) || t < cutoff;
+			})
+			.sort((a, b) => (a.lastContactDate ?? '').localeCompare(b.lastContactDate ?? ''));
+	});
+
 	// Actions
 	selectLead(lead: ClientLead | null) {
 		this.selectedLead = lead;
@@ -319,22 +404,65 @@ class CRMState {
 	}
 
 	addNote(leadId: string, content: string, type: Note['type'] = 'general') {
+		this.logInteraction(leadId, content, type ?? 'general');
+	}
+
+	scheduleFollowUp(leadId: string, dateISO: string | null, noteContent?: string) {
 		const leadIndex = this.leads.findIndex(l => l.id === leadId);
-		if (leadIndex !== -1 && content.trim()) {
-			const note: Note = {
+		if (leadIndex === -1) return;
+		this.leads[leadIndex].nextFollowUpDate = dateISO && dateISO.trim() ? dateISO : null;
+		if (noteContent && noteContent.trim()) {
+			this.leads[leadIndex].notes.unshift({
 				id: `note-${Date.now()}`,
-				content: content.trim(),
+				content: noteContent.trim(),
 				createdAt: new Date().toISOString(),
-				type
-			};
-			this.leads[leadIndex].notes.unshift(note);
-			this.leads[leadIndex].lastContactDate = new Date().toISOString();
-			
-			if (this.selectedLead?.id === leadId) {
-				this.selectedLead = { ...this.leads[leadIndex] };
-			}
-			this.saveToStorage();
+				type: 'general',
+				nextFollowUpDate: this.leads[leadIndex].nextFollowUpDate
+			});
 		}
+		if (this.selectedLead?.id === leadId) {
+			this.selectedLead = { ...this.leads[leadIndex] };
+		}
+		this.saveToStorage();
+	}
+
+	completeFollowUp(leadId: string) {
+		const leadIndex = this.leads.findIndex(l => l.id === leadId);
+		if (leadIndex === -1) return;
+		this.leads[leadIndex].nextFollowUpDate = null;
+		if (this.selectedLead?.id === leadId) {
+			this.selectedLead = { ...this.leads[leadIndex] };
+		}
+		this.saveToStorage();
+	}
+
+	logInteraction(
+		leadId: string,
+		content: string,
+		channel: NoteType = 'general',
+		opts: { outcome?: InteractionOutcome | null; nextFollowUp?: string | null } = {}
+	) {
+		const leadIndex = this.leads.findIndex(l => l.id === leadId);
+		if (leadIndex === -1 || !content.trim()) return;
+		const now = new Date().toISOString();
+		const note: Note = {
+			id: `note-${Date.now()}`,
+			content: content.trim(),
+			createdAt: now,
+			type: channel,
+			outcome: opts.outcome ?? null,
+			nextFollowUpDate: opts.nextFollowUp ?? null
+		};
+		this.leads[leadIndex].notes.unshift(note);
+		this.leads[leadIndex].lastContactDate = now;
+		if (opts.nextFollowUp !== undefined) {
+			this.leads[leadIndex].nextFollowUpDate =
+				opts.nextFollowUp && opts.nextFollowUp.trim() ? opts.nextFollowUp : null;
+		}
+		if (this.selectedLead?.id === leadId) {
+			this.selectedLead = { ...this.leads[leadIndex] };
+		}
+		this.saveToStorage();
 	}
 
 	updateLead(updated: ClientLead) {

@@ -2,11 +2,24 @@ export type LeadStatus = 'lead' | 'contacted' | 'meeting' | 'proposal' | 'won' |
 
 export type LeadPriority = 'hot' | 'warm' | 'cold';
 
+export type InteractionChannel = 'whatsapp' | 'call' | 'visit' | 'email';
+
+export type NoteType = InteractionChannel | 'meeting' | 'general';
+
+export type InteractionOutcome =
+	| 'sem-resposta'
+	| 'contactado'
+	| 'interessado'
+	| 'proposta-pedida'
+	| 'recusou';
+
 export interface Note {
 	id: string;
 	content: string;
 	createdAt: string;
-	type?: 'call' | 'whatsapp' | 'meeting' | 'general';
+	type?: NoteType;
+	outcome?: InteractionOutcome | null;
+	nextFollowUpDate?: string | null;
 }
 
 export interface ClientLead {
@@ -68,6 +81,14 @@ export interface CRMStats {
 	missingPhoneCount: number;
 	topCities: { city: string; count: number }[];
 	topCategories: { category: string; count: number }[];
+}
+
+export interface FollowUpGroups {
+	overdue: ClientLead[];
+	today: ClientLead[];
+	tomorrow: ClientLead[];
+	next7: ClientLead[];
+	unscheduled: ClientLead[];
 }
 
 export interface RawClientData {
