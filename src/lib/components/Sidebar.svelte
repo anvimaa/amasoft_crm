@@ -107,7 +107,7 @@
 			<div class="flex flex-col">
 				<div class="flex items-center gap-1.5">
 					<span
-						class="text-xs font-semibold text-zinc-100 tracking-tight truncate max-w-[120px]"
+						class="text-xs font-semibold text-zinc-100 tracking-tight truncate max-w-30"
 						>{companyStore.company.name}</span
 					>
 					<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"
@@ -430,7 +430,7 @@
 				</div>
 				<div class="flex flex-col">
 					<span
-						class="text-xs font-medium text-zinc-200 truncate max-w-[100px]"
+						class="text-xs font-medium text-zinc-200 truncate max-w-25"
 						>{companyStore.company.name}</span
 					>
 					<span class="text-[10px] text-zinc-400"
