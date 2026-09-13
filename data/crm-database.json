@@ -1,5 +1,52 @@
 [
   {
+    "title": "PAFIFE LDA",
+    "categoryName": "Prestação de Serviços",
+    "categories": [
+      "Prestação de Serviços"
+    ],
+    "city": "Luanda",
+    "phone": "932323215",
+    "phoneUnformatted": "932323215",
+    "website": "www.pafife.store",
+    "address": null,
+    "neighborhood": null,
+    "street": null,
+    "postalCode": null,
+    "state": null,
+    "countryCode": "AO",
+    "location": null,
+    "plusCode": null,
+    "status": "won",
+    "priority": "warm",
+    "estimatedValue": 100000,
+    "tags": [
+      "Com Website",
+      "Telefone Válido",
+      "Luanda"
+    ],
+    "lastContactDate": "2026-09-13T20:05:21.924Z",
+    "nextFollowUpDate": null,
+    "decisionMaker": "DOMINGOS DRUPET",
+    "assignedTo": "António Mantente",
+    "id": "lead-custom-1789329819659",
+    "notes": [
+      {
+        "id": "note-1789329921924",
+        "content": "Estágio alterado para \"Fechado\".",
+        "createdAt": "2026-09-13T20:05:21.924Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789329819659",
+        "content": "Registo criado no CRM Amasoft.",
+        "createdAt": "2026-09-13T20:03:39.659Z",
+        "type": "general"
+      }
+    ],
+    "decisionMakerRole": "CEO"
+  },
+  {
     "id": "lead-1",
     "title": "TAYE – Prestação de Serviços, Lda",
     "categories": [
@@ -429,7 +476,7 @@
       "lng": 13.4848712
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "contacted",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -437,8 +484,15 @@
       "Telefone Válido",
       "Centralidade de Cacuaco"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333753543",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:13.543Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:13.543Z",
     "nextFollowUpDate": null
   },
   {
@@ -978,7 +1032,7 @@
       "lng": 15.7224141
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "won",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -986,8 +1040,15 @@
       "Telefone Válido",
       "Huambo"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333762367",
+        "content": "Estágio alterado para \"Fechado\".",
+        "createdAt": "2026-09-13T21:09:22.367Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:22.367Z",
     "nextFollowUpDate": null
   },
   {
@@ -2817,7 +2878,7 @@
       "lng": 13.2158526
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "lost",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -2825,8 +2886,15 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333764352",
+        "content": "Estágio alterado para \"Desqualificado\".",
+        "createdAt": "2026-09-13T21:09:24.352Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:24.352Z",
     "nextFollowUpDate": null
   },
   {
@@ -3670,7 +3738,7 @@
       "lng": 13.2321368
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "contacted",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -3678,8 +3746,15 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333756533",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:16.533Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:16.533Z",
     "nextFollowUpDate": null
   },
   {
@@ -3874,7 +3949,7 @@
       "lng": 13.2301756
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "proposal",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -3882,8 +3957,15 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333759764",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-13T21:09:19.764Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:19.764Z",
     "nextFollowUpDate": null
   },
   {
@@ -6529,7 +6611,7 @@
       "lng": 13.1873167
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "lost",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -6537,8 +6619,15 @@
       "Telefone Válido",
       "Belas"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333767895",
+        "content": "Estágio alterado para \"Desqualificado\".",
+        "createdAt": "2026-09-13T21:09:27.895Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:27.895Z",
     "nextFollowUpDate": null
   },
   {
@@ -7317,7 +7406,7 @@
       "lng": 13.1901067
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "meeting",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -7326,6 +7415,12 @@
       "Luanda"
     ],
     "notes": [
+      {
+        "id": "note-1789333744977",
+        "content": "Estágio alterado para \"Qualificação\".",
+        "createdAt": "2026-09-13T21:09:04.977Z",
+        "type": "general"
+      },
       {
         "id": "note-1789309863844",
         "content": "Contacto via WhatsApp (Agenda).",
@@ -7341,7 +7436,7 @@
         "type": "general"
       }
     ],
-    "lastContactDate": "2026-09-13T14:31:03.844Z",
+    "lastContactDate": "2026-09-13T21:09:04.977Z",
     "nextFollowUpDate": null
   },
   {
@@ -8337,40 +8432,6 @@
     "nextFollowUpDate": null
   },
   {
-    "id": "lead-imp-1789298288012-7",
-    "title": "A4 Gráfica",
-    "categories": [
-      "Designer Gráfico"
-    ],
-    "categoryName": "Designer Gráfico",
-    "address": "Bairro da Mapunda, Lubango, Angola",
-    "neighborhood": null,
-    "street": "Bairro da Mapunda",
-    "city": "Lubango",
-    "postalCode": null,
-    "state": null,
-    "countryCode": "AO",
-    "website": null,
-    "phone": "+244 941 557 778",
-    "phoneUnformatted": "+244941557778",
-    "location": {
-      "lat": -14.9061457,
-      "lng": 13.4787305
-    },
-    "plusCode": null,
-    "status": "lead",
-    "priority": "cold",
-    "estimatedValue": 0,
-    "tags": [
-      "Sem Website",
-      "Telefone Válido",
-      "Lubango"
-    ],
-    "notes": [],
-    "lastContactDate": null,
-    "nextFollowUpDate": null
-  },
-  {
     "id": "lead-imp-1789298288012-8",
     "title": "Gráfica Ohana",
     "categories": [
@@ -8768,7 +8829,7 @@
       "lng": 15.7364747
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "contacted",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -8776,8 +8837,15 @@
       "Telefone Válido",
       "Huambo"
     ],
-    "notes": [],
-    "lastContactDate": null,
+    "notes": [
+      {
+        "id": "note-1789333751597",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:11.597Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": "2026-09-13T21:09:11.597Z",
     "nextFollowUpDate": null
   },
   {
@@ -9251,7 +9319,7 @@
       "lng": 15.7414042
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "contacted",
     "priority": "cold",
     "estimatedValue": 0,
     "tags": [
@@ -9259,6 +9327,12 @@
       "Telefone Válido"
     ],
     "notes": [
+      {
+        "id": "note-1789333747218",
+        "content": "Estágio alterado para \"Em Contacto\".",
+        "createdAt": "2026-09-13T21:09:07.218Z",
+        "type": "general"
+      },
       {
         "id": "note-1789309569236",
         "content": "Estágio alterado para \"Novo Lead\".",
@@ -9272,7 +9346,7 @@
         "type": "general"
       }
     ],
-    "lastContactDate": "2026-09-13T14:26:09.236Z",
+    "lastContactDate": "2026-09-13T21:09:07.218Z",
     "nextFollowUpDate": null
   },
   {

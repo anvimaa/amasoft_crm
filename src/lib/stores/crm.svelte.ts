@@ -29,7 +29,6 @@ function startOfToday(): Date {
 class CRMState {
 	leads = $state<ClientLead[]>([]);
 	selectedLead = $state<ClientLead | null>(null);
-	activeView = $state<'dashboard' | 'kanban' | 'table' | 'map' | 'agenda'>('dashboard');
 	isDrawerOpen = $state<boolean>(false);
 	isAddModalOpen = $state<boolean>(false);
 	isPurgeModalOpen = $state<boolean>(false);
