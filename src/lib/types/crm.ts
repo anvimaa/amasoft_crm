@@ -103,6 +103,10 @@ export interface CompanyProfile {
 	city: string;
 	logoUrl?: string;
 	slogan?: string;
+	bankName?: string;
+	bankIban?: string;
+	bankAccountHolder?: string;
+	bankSwift?: string;
 }
 
 export interface TeamMember {
@@ -135,3 +139,63 @@ export interface RawClientData {
 	} | null;
 	plusCode?: string | null;
 }
+
+export type TemplateCategory =
+	| 'prospecting'
+	| 'followup'
+	| 'meeting'
+	| 'proposal'
+	| 'closing'
+	| 'reactivation'
+	| 'general';
+
+export interface ApproachTemplate {
+	id: string;
+	title: string;
+	description: string;
+	category: TemplateCategory;
+	content: string;
+	isDefault?: boolean;
+	createdAt: string;
+	updatedAt?: string;
+}
+
+export interface ProposalItem {
+	id: string;
+	description: string;
+	quantity: number;
+	unitPrice: number;
+	discountPercent: number;
+	total: number;
+}
+
+export type ProposalStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
+
+export interface CommercialProposal {
+	id: string;
+	code: string;
+	leadId: string;
+	leadTitle: string;
+	leadCategory?: string;
+	leadCity?: string;
+	leadAddress?: string;
+	leadNif?: string;
+	leadContact?: string;
+	leadPhone?: string;
+	leadEmail?: string;
+	status: ProposalStatus;
+	issueDate: string;
+	validUntil: string;
+	items: ProposalItem[];
+	subtotal: number;
+	taxPercent: number;
+	taxAmount: number;
+	total: number;
+	paymentTerms: string;
+	deliveryTerms: string;
+	bankDetails?: string;
+	notes?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+

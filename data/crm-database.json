@@ -8993,15 +8993,29 @@
       "lng": 15.7364747
     },
     "plusCode": null,
-    "status": "lead",
+    "status": "proposal",
     "priority": "cold",
-    "estimatedValue": 0,
+    "estimatedValue": 85000,
     "tags": [
       "Sem Website",
       "Telefone Válido",
       "Huambo"
     ],
     "notes": [
+      {
+        "id": "note-1789378793996",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-14T09:39:53.996Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789378793974",
+        "content": "Proposta Comercial emitida: PROP-2026-001 no valor de 85 000 Kz.",
+        "createdAt": "2026-09-14T09:39:53.974Z",
+        "type": "general",
+        "outcome": null,
+        "nextFollowUpDate": null
+      },
       {
         "id": "note-1789335012671",
         "content": "Estágio alterado para \"Novo Lead\".",
@@ -9027,7 +9041,7 @@
         "type": "general"
       }
     ],
-    "lastContactDate": "2026-09-13T21:30:12.671Z",
+    "lastContactDate": "2026-09-14T09:39:53.996Z",
     "nextFollowUpDate": null
   },
   {

@@ -37,18 +37,26 @@
 ## 3. Arquitetura de Dados & Persistência
 
 ### 3.1. Base de Dados Atual (JSON Centralizado no Servidor)
-- Ficheiro ativo: [`data/crm-database.json`](file:///home/anvima/projectos/amasoft_crm/data/crm-database.json)
+- Ficheiros ativos:
+  - [`data/crm-database.json`](file:///home/anvima/projectos/amasoft_crm/data/crm-database.json): Leads do CRM.
+  - [`data/company-profile.json`](file:///home/anvima/projectos/amasoft_crm/data/company-profile.json): Dados fiscais, bancários (IBAN) e perfil da empresa.
+  - [`data/team-members.json`](file:///home/anvima/projectos/amasoft_crm/data/team-members.json): Equipa comercial e vendedores.
+  - [`data/whatsapp-templates.json`](file:///home/anvima/projectos/amasoft_crm/data/whatsapp-templates.json): Modelos e scripts de abordagem comercial.
+  - [`data/proposals.json`](file:///home/anvima/projectos/amasoft_crm/data/proposals.json): Propostas comerciais emitidas em Kwanzas (Kz).
 - Módulo servidor: [`src/lib/server/db.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/server/db.ts)
 - Endpoints API:
-  - `GET /api/leads`: Carrega os leads da base persistente do servidor.
-  - `POST /api/leads`: Salva as alterações na base do servidor.
+  - `GET /api/leads` / `POST /api/leads`: Carrega e grava leads.
   - `POST /api/leads/reset`: Restaura a base original com 100 leads limpos.
   - `GET /api/leads/export/original`: Download direto no formato de 14 campos.
+  - `GET /api/company` / `POST /api/company`: Perfil da empresa e equipa comercial.
+  - `GET /api/templates` / `POST /api/templates`: Modelos de abordagem multicanal.
+  - `GET /api/proposals` / `POST /api/proposals`: Propostas comerciais orçamentadas.
 
-### 3.2. Store Reativa do CRM
-- Localização: [`src/lib/stores/crm.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/crm.svelte.ts)
-- Baseada nas Runes do Svelte 5 com sincronização bidirecional (Server API + cache `localStorage: amasoft_crm_leads_v2`).
-- Métricas derivadas automáticas (`stats`): contagem por estágio, prioridade, valor total em pipeline, taxa de conversão, contas sem website/telefone, distribuição por províncias/setores.
+### 3.2. Stores Reativas do CRM (Svelte 5 Runes)
+- [`src/lib/stores/crm.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/crm.svelte.ts) (`crmStore`): Leads, filtros, estatísticas e sincronização.
+- [`src/lib/stores/company.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/company.svelte.ts) (`companyStore`): Dados corporativos da empresa e equipa.
+- [`src/lib/stores/templates.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/templates.svelte.ts) (`templatesStore`): Modelos de abordagem, variáveis dinâmicas (`{empresa}`, `{decisor}`, `{meu_nome}`), renderizador e categorias.
+- [`src/lib/stores/proposals.svelte.ts`](file:///home/anvima/projectos/amasoft_crm/src/lib/stores/proposals.svelte.ts) (`proposalsStore`): Propostas comerciais em Kz, cálculo de IVA (14%/isento), transição de estados e sincronização com leads.
 
 ### 3.3. Esquema de Dados (14 Campos Nativos)
 - `title` (string)
@@ -64,18 +72,24 @@
 
 ## 4. Módulos e Componentes do Sistema
 
-| Componente | Função e Recursos |
+| Componente | Rota / Função e Recursos |
 | :--- | :--- |
-| [`Sidebar.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Sidebar.svelte) | Navegação lateral profissional, contadores em tempo real, filtros estratégicos (Sem Website, Alta Prioridade, Fechados), botão de purga sem telefone, widget de pipeline, atalhos de importação/exportação/restauração. |
-| [`Header.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Header.svelte) | Barra superior limpa com breadcrumbs, busca global, indicador de salvamento automático no servidor, botão de importação, menu de exportação (formato original vs CRM completo) e CTA "Adicionar Empresa". |
-| [`DashboardView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/DashboardView.svelte) | Painel executivo com KPIs (Total Contas, Oportunidades Quentes, Pipeline Kz, Taxa de Conversão), funil de vendas, oportunidades sem website (alvos prioritários) e top províncias. |
-| [`KanbanView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/KanbanView.svelte) | Pipeline comercial interativo com 5 colunas (`Novo Lead`, `Em Contacto`, `Qualificação`, `Proposta`, `Fechado`), drag-and-drop nativo HTML5, somatório em Kz por coluna e botão de WhatsApp direto. |
-| [`TableView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/TableView.svelte) | Diretório tabular com multi-filtros, ordenação, troca rápida de estágio, e paginação avançada (seletor de registos 10/20/50/100/Todas, salto direto por pílulas numéricas, input "Ir para página", botões primeira/última página). |
-| [`MapView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/MapView.svelte) | Vista geográfica da cobertura de empresas por província em Angola com links diretos para o Google Maps. |
-| [`LeadDrawer.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/LeadDrawer.svelte) | Painel lateral deslizante com ficha completa, gerador de mensagens WhatsApp B2B corporativas personalizadas, histórico de notas/atividades cronológicas e exclusão individual com confirmação. |
-| [`AddLeadModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/AddLeadModal.svelte) | Modal de cadastro manual de novas empresas (valor estimado por defeito a 0 Kz, fechamento restrito a Cancelar/X). |
-| [`ImportLeadsModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ImportLeadsModal.svelte) | Modal de importação com drag-and-drop de arquivos `.json`, validação de esquema, deteção inteligente de duplicados por nome/telefone, tabela de pré-visualização e opção de anti-duplicação. |
-| [`PurgeNoPhoneModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/PurgeNoPhoneModal.svelte) | Modal corporativo com tabela de pré-visualização de todas as contas sem telefone antes de efetuar a exclusão em lote. |
+| [`Sidebar.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Sidebar.svelte) | Navegação lateral profissional, contadores em tempo real, links de rotas (`/dashboard`, `/pipeline`, `/table`, `/map`, `/agenda`, `/propostas`, `/templates`), filtros estratégicos e atalhos. |
+| [`Header.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/Header.svelte) | Barra superior limpa com breadcrumbs dinâmicos, busca global, indicador de salvamento automático no servidor, menu de exportação e CTA "Adicionar Empresa". |
+| [`DashboardView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/DashboardView.svelte) | Rota `/dashboard`: Painel executivo com KPIs em Kz, funil de vendas, oportunidades prioritárias sem website e top províncias. |
+| [`KanbanView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/KanbanView.svelte) | Rota `/pipeline`: Pipeline comercial interativo com 5 colunas, drag-and-drop HTML5, somatório em Kz por coluna e botão de WhatsApp direto. |
+| [`TableView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/TableView.svelte) | Rota `/table`: Diretório tabular com multi-filtros, ordenação, troca rápida de estágio e paginação completa. |
+| [`MapView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/MapView.svelte) | Rota `/map`: Vista geográfica de cobertura por províncias em Angola com atalhos de rotas Google Maps. |
+| [`AgendaView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/AgendaView.svelte) | Rota `/agenda`: Gestão de follow-ups diários, atrasados e reuniões agendadas. |
+| [`ProposalsView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ProposalsView.svelte) | Rota `/propostas`: Gestor de propostas comerciais com métricas (Total emitido Kz, taxa de aceitação), filtros por estado e tabela de cotações. |
+| [`ProposalEditorModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ProposalEditorModal.svelte) | Editor dinâmico de propostas: adição de itens em Kz, cálculo automático de IVA (14%/isento), termos de pagamento, seleção de conta bancária/IBAN e associação ao Lead. |
+| [`ProposalViewModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ProposalViewModal.svelte) | Modal de visualização de Proposta Comercial em folha padrão A4 pronta para impressão/exportação em PDF (`window.print()`), mudança de estado e gerador de mensagem de envio WhatsApp. |
+| [`TemplatesView.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/TemplatesView.svelte) | Rota `/templates`: Catálogo e gestor de modelos de abordagem categorizados (Primeiro Contacto, Sem Website, Proposta, Reunião, etc.) com preview ao vivo e cópia instantânea. |
+| [`TemplateEditorModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/TemplateEditorModal.svelte) | Editor visual de modelos com inserção rápida de tags dinâmicas (`{empresa}`, `{decisor}`, `{servicos}`, etc.) e pré-visualização em tempo real. |
+| [`LeadDrawer.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/LeadDrawer.svelte) | Painel lateral deslizante com ficha completa, gerador de mensagens WhatsApp integrado com os templates dinâmicos, aba de propostas vinculadas à conta e histórico de notas. |
+| [`AddLeadModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/AddLeadModal.svelte) | Modal de cadastro manual de novas empresas (valor inicial 0 Kz, backdrop estático). |
+| [`ImportLeadsModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ImportLeadsModal.svelte) | Modal de importação com drag-and-drop de arquivos `.json`, validação de esquema, deteção inteligente de duplicados por nome/telefone e tabela de pré-visualização. |
+| [`PurgeNoPhoneModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/PurgeNoPhoneModal.svelte) | Modal com tabela de pré-visualização de todas as contas sem telefone antes da exclusão em lote. |
 | [`ResetConfirmModal.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ResetConfirmModal.svelte) | Modal de segurança para reposição limpa da base de dados. |
 | [`ToastContainer.svelte`](file:///home/anvima/projectos/amasoft_crm/src/lib/components/ToastContainer.svelte) | Sistema de notificações toast contextuais não-bloqueantes (`success`, `error`, `info`). |
 

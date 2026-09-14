@@ -11,6 +11,9 @@
 	import ImportLeadsModal from '#lib/components/ImportLeadsModal.svelte';
 	import CompanySettingsModal from '#lib/components/CompanySettingsModal.svelte';
 	import TeamManagementModal from '#lib/components/TeamManagementModal.svelte';
+	import ProposalEditorModal from '#lib/components/ProposalEditorModal.svelte';
+	import ProposalViewModal from '#lib/components/ProposalViewModal.svelte';
+	import TemplateEditorModal from '#lib/components/TemplateEditorModal.svelte';
 	import ToastContainer from '#lib/components/ToastContainer.svelte';
 
 	let { children } = $props();
@@ -52,6 +55,9 @@
 	<ImportLeadsModal />
 	<CompanySettingsModal />
 	<TeamManagementModal />
+	<ProposalEditorModal />
+	<ProposalViewModal />
+	<TemplateEditorModal />
 	<ResetConfirmModal
 		isOpen={crmStore.isResetModalOpen}
 		onClose={() => crmStore.isResetModalOpen = false}

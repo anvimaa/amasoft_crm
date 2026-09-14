@@ -1,18 +1,22 @@
 <script lang="ts">
 	import { crmStore } from '../stores/crm.svelte';
 	import { companyStore } from '../stores/company.svelte';
+	import { templatesStore } from '../stores/templates.svelte';
+	import { proposalsStore } from '../stores/proposals.svelte';
 	import Icon from './Icon.svelte';
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
-	import type { ClientLead, InteractionOutcome, LeadPriority, LeadStatus, NoteType } from '../types/crm';
-	import { generateWhatsAppLink, WHATSAPP_TEMPLATES, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
+	import type { ClientLead, CommercialProposal, InteractionOutcome, LeadPriority, LeadStatus, NoteType } from '../types/crm';
+	import { generateWhatsAppLink, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
 	import { formatKz } from '../utils/format';
+	import { generateProposalPDF } from '../utils/pdf-generator';
 
 	import { toast } from '../stores/toast.svelte';
 
 	let lead = $derived(crmStore.selectedLead);
+	let leadProposals = $derived.by(() => (lead ? proposalsStore.getProposalsByLead(lead.id) : []));
 	
-	let selectedTemplateId = $state<string>(WHATSAPP_TEMPLATES[0].id);
+	let selectedTemplateId = $state<string>('');
 	let customMessage = $state<string>('');
 	let newNoteText = $state<string>('');
 	let newNoteChannel = $state<NoteType>('general');
@@ -21,7 +25,7 @@
 	let noteChannelFilter = $state<'all' | NoteType>('all');
 	let isConfirmingDelete = $state<boolean>(false);
 
-	let activeTab = $state<'whatsapp' | 'notes' | 'details'>('whatsapp');
+	let activeTab = $state<'whatsapp' | 'proposals' | 'notes' | 'details'>('whatsapp');
 
 	// Contact & follow-up drafts (synced from selected lead)
 	let decisionMaker = $state<string>('');
@@ -44,11 +48,20 @@
 	let editEmail = $state<string>('');
 	let isEditingCadastral = $state<boolean>(false);
 
+	let pendingWhatsAppOutcome = $state<boolean>(false);
+	let messageBeingSent = $state<string>('');
+	let templateTitleBeingSent = $state<string>('');
+
 	$effect(() => {
 		if (lead) {
-			const t = WHATSAPP_TEMPLATES.find(x => x.id === selectedTemplateId) || WHATSAPP_TEMPLATES[0];
-			const assigneeName = lead.assignedTo ? companyStore.getMemberByName(lead.assignedTo)?.name : undefined;
-			customMessage = t.getText(lead.title, lead.categoryName, lead.city || 'Angola', companyStore.company, assigneeName);
+			pendingWhatsAppOutcome = false;
+			const templates = templatesStore.templates;
+			const t = templates.find((x) => x.id === selectedTemplateId) || templates[0];
+			if (t) {
+				selectedTemplateId = t.id;
+				const assigneeName = lead.assignedTo ? companyStore.getMemberByName(lead.assignedTo)?.name : undefined;
+				customMessage = templatesStore.renderTemplate(t, { lead, company: companyStore.company, assigneeName });
+			}
 			isConfirmingDelete = false;
 			decisionMaker = lead.decisionMaker || '';
 			decisionMakerRole = lead.decisionMakerRole || '';
@@ -95,9 +108,11 @@
 	function handleTemplateChange(templateId: string) {
 		selectedTemplateId = templateId;
 		if (lead) {
-			const t = WHATSAPP_TEMPLATES.find(x => x.id === templateId) || WHATSAPP_TEMPLATES[0];
-			const assigneeName = lead.assignedTo ? companyStore.getMemberByName(lead.assignedTo)?.name : undefined;
-			customMessage = t.getText(lead.title, lead.categoryName, lead.city || 'Angola', companyStore.company, assigneeName);
+			const t = templatesStore.templates.find((x) => x.id === templateId) || templatesStore.templates[0];
+			if (t) {
+				const assigneeName = lead.assignedTo ? companyStore.getMemberByName(lead.assignedTo)?.name : undefined;
+				customMessage = templatesStore.renderTemplate(t, { lead, company: companyStore.company, assigneeName });
+			}
 		}
 	}
 
@@ -106,12 +121,59 @@
 			toast.error('Contacto Indisponível', `A empresa "${lead?.title}" não possui número de telefone registado.`);
 			return;
 		}
+		if (!customMessage.trim()) {
+			toast.error('Mensagem Vazia', 'Escreva uma mensagem antes de abrir o WhatsApp.');
+			return;
+		}
 		const url = generateWhatsAppLink(lead.phone, customMessage);
 		if (url) {
 			window.open(url, '_blank');
-			crmStore.addNote(lead.id, `Mensagem de abordagem enviada via WhatsApp:\n\n${customMessage}`, 'whatsapp');
-			toast.success('WhatsApp Aberto', `Conversa iniciada com ${lead.title}.`);
+			messageBeingSent = customMessage;
+			const currentTmpl = templatesStore.templates.find((x) => x.id === selectedTemplateId);
+			templateTitleBeingSent = currentTmpl ? currentTmpl.title : 'Abordagem Comercial';
+			pendingWhatsAppOutcome = true;
+			toast.info('WhatsApp Aberto', 'Verifique o WhatsApp e confirme o desfecho da mensagem abaixo.');
 		}
+	}
+
+	function confirmWhatsAppSent() {
+		if (!lead) return;
+		const noteText = `Mensagem de abordagem enviada via WhatsApp [${templateTitleBeingSent}]:\n\n${messageBeingSent}`;
+		crmStore.logInteraction(lead.id, noteText, 'whatsapp', { outcome: 'contactado' });
+		
+		// Auto advance to 'contacted' if currently 'lead'
+		if (lead.status === 'lead') {
+			crmStore.updateStatus(lead.id, 'contacted');
+		}
+
+		pendingWhatsAppOutcome = false;
+		toast.success('Envio Registado', 'A mensagem foi guardada no histórico com sucesso.');
+	}
+
+	function cancelWhatsAppOutcome() {
+		pendingWhatsAppOutcome = false;
+		toast.info('Envio Cancelado', 'Nenhum registo ou alteração foi guardada no histórico do lead.');
+	}
+
+	function markNoWhatsApp() {
+		if (!lead) return;
+		crmStore.logInteraction(
+			lead.id,
+			'Tentativa de contacto via WhatsApp sem sucesso (número sem WhatsApp ou inválido).',
+			'whatsapp',
+			{ outcome: 'sem-resposta' }
+		);
+		
+		const currentTags = lead.tags || [];
+		if (!currentTags.includes('Sem WhatsApp')) {
+			crmStore.updateLead({
+				...lead,
+				tags: [...currentTags, 'Sem WhatsApp']
+			});
+		}
+
+		pendingWhatsAppOutcome = false;
+		toast.info('Marcado sem WhatsApp', 'O lead foi sinalizado com a etiqueta "Sem WhatsApp".');
 	}
 
 	function handleAddNote() {
@@ -124,6 +186,16 @@
 			newNoteOutcome = '';
 			newNoteNextFollowUp = '';
 			toast.success('Atividade registada', 'Interação guardada e acompanhamento atualizado.');
+		}
+	}
+
+	function handleDownloadLeadProposal(p: CommercialProposal) {
+		try {
+			generateProposalPDF(p, companyStore.company, true);
+			toast.success('PDF Gerado', `Ficheiro "Proposta_${p.code}.pdf" descarregado com sucesso.`);
+		} catch (e) {
+			console.error('Erro ao gerar PDF:', e);
+			toast.error('Erro no PDF', 'Falha ao gerar o ficheiro PDF.');
 		}
 	}
 
@@ -229,13 +301,25 @@
 				<p class="text-xs text-zinc-400">{lead.categoryName} • {lead.city || 'Angola'}</p>
 			</div>
 
-			<button
-				type="button"
-				onclick={() => crmStore.selectLead(null)}
-				class="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-			>
-				<Icon name="close" class="w-4 h-4" />
-			</button>
+			<div class="flex items-center gap-2">
+				<button
+					type="button"
+					onclick={() => proposalsStore.openNewProposal(lead)}
+					class="flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white px-2.5 py-1 text-xs font-semibold text-zinc-950 transition-colors cursor-pointer shadow-sm"
+					title="Emitir proposta comercial formal para esta empresa"
+				>
+					<Icon name="file-text" class="w-3.5 h-3.5" />
+					<span>Criar Proposta</span>
+				</button>
+
+				<button
+					type="button"
+					onclick={() => crmStore.selectLead(null)}
+					class="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
 		</div>
 
 		<!-- Quick Modifiers -->
@@ -307,19 +391,27 @@
 		</div>
 
 		<!-- Tabs Bar -->
-		<div class="flex border-b border-zinc-800 px-5 bg-zinc-900/20">
+		<div class="flex border-b border-zinc-800 px-5 bg-zinc-900/20 overflow-x-auto">
 			<button
 				type="button"
 				onclick={() => activeTab = 'whatsapp'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium transition-colors cursor-pointer {activeTab === 'whatsapp' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'whatsapp' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="whatsapp" class="w-3.5 h-3.5 text-emerald-400" />
 				Abordagem Comercial
 			</button>
 			<button
 				type="button"
+				onclick={() => activeTab = 'proposals'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'proposals' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="file-text" class="w-3.5 h-3.5 text-zinc-400" />
+				Propostas ({leadProposals.length})
+			</button>
+			<button
+				type="button"
 				onclick={() => activeTab = 'notes'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium transition-colors cursor-pointer {activeTab === 'notes' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'notes' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="edit" class="w-3.5 h-3.5 text-zinc-400" />
 				Registo de Atividades ({lead.notes.length})
@@ -327,7 +419,7 @@
 			<button
 				type="button"
 				onclick={() => activeTab = 'details'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium transition-colors cursor-pointer {activeTab === 'details' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'details' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="building" class="w-3.5 h-3.5 text-zinc-400" />
 				Dados Cadastrais
@@ -354,10 +446,20 @@
 
 					<!-- Template Selector with Categories -->
 					<div>
-						<label for="template-picker" class="block text-xs font-medium text-zinc-300 mb-2">Modelos de Comunicação ({WHATSAPP_TEMPLATES.length})</label>
+						<div class="flex items-center justify-between mb-2">
+							<label for="template-picker" class="block text-xs font-medium text-zinc-300">
+								Modelos de Comunicação ({templatesStore.templates.length})
+							</label>
+							<a
+								href="/templates"
+								class="text-[11px] text-zinc-400 hover:text-white hover:underline"
+							>
+								Gerir Modelos
+							</a>
+						</div>
 						<div class="space-y-3">
 							{#each Object.entries(WHATSAPP_CATEGORIES) as [catKey, catInfo]}
-								{@const catTemplates = WHATSAPP_TEMPLATES.filter(t => t.category === catKey)}
+								{@const catTemplates = templatesStore.templates.filter(t => t.category === catKey)}
 								{#if catTemplates.length > 0}
 									<div>
 										<div class="flex items-center gap-2 mb-1.5">
@@ -401,8 +503,150 @@
 						class="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
 					>
 						<Icon name="whatsapp" class="w-4 h-4" />
-						Abrir Conversa no WhatsApp
+						{pendingWhatsAppOutcome ? 'Reabrir WhatsApp' : 'Abrir Conversa no WhatsApp'}
 					</button>
+
+					{#if pendingWhatsAppOutcome}
+						<!-- OUTCOME CONFIRMATION CARD -->
+						<div class="rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-4 space-y-3.5 shadow-lg shadow-emerald-950/20">
+							<div class="flex items-start gap-3">
+								<div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0 border border-emerald-500/20">
+									<Icon name="whatsapp" class="w-5 h-5" />
+								</div>
+								<div class="space-y-1">
+									<div class="flex items-center gap-2">
+										<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+										<h4 class="text-xs font-semibold text-emerald-300">Confirmação de Envio no WhatsApp</h4>
+									</div>
+									<p class="text-[11px] text-zinc-300 leading-relaxed">
+										A conversa foi aberta no WhatsApp. Conseguiu enviar a mensagem para <strong class="text-white">{lead.title}</strong>?
+									</p>
+								</div>
+							</div>
+
+							<!-- Action Buttons -->
+							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+								<button
+									type="button"
+									onclick={confirmWhatsAppSent}
+									class="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors cursor-pointer shadow-sm"
+								>
+									<Icon name="check" class="w-3.5 h-3.5" />
+									<span>Sim, Enviada</span>
+								</button>
+
+								<button
+									type="button"
+									onclick={cancelWhatsAppOutcome}
+									class="flex items-center justify-center gap-1.5 rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+								>
+									<Icon name="close" class="w-3.5 h-3.5" />
+									<span>Não Enviei</span>
+								</button>
+
+								<button
+									type="button"
+									onclick={markNoWhatsApp}
+									class="flex items-center justify-center gap-1.5 rounded-lg bg-amber-950/40 border border-amber-800/50 px-3 py-2 text-xs font-medium text-amber-300 hover:bg-amber-900/50 transition-colors cursor-pointer"
+								>
+									<Icon name="phone-off" class="w-3.5 h-3.5" />
+									<span>Sem WhatsApp</span>
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB 2: PROPOSALS -->
+			{:else if activeTab === 'proposals'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-semibold text-zinc-200">
+							Propostas Emitidas ({leadProposals.length})
+						</span>
+						<button
+							type="button"
+							onclick={() => proposalsStore.openNewProposal(lead)}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Nova Proposta</span>
+						</button>
+					</div>
+
+					{#if leadProposals.length > 0}
+						<div class="space-y-2.5">
+							{#each leadProposals as proposal (proposal.id)}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3 hover:border-zinc-700 transition-colors">
+									<div class="flex items-start justify-between gap-2">
+										<div>
+											<div class="flex items-center gap-2">
+												<span class="font-mono text-xs font-bold text-zinc-100">{proposal.code}</span>
+												<span class="rounded bg-zinc-800 px-1.5 py-0.2 text-[10px] uppercase font-semibold text-zinc-300 border border-zinc-700">
+													{proposal.status}
+												</span>
+											</div>
+											<p class="text-[11px] text-zinc-400 mt-1">
+												Emitida em {proposal.issueDate} • Validade até {proposal.validUntil}
+											</p>
+										</div>
+
+										<div class="text-right font-mono">
+											<span class="text-sm font-bold text-emerald-400">{formatKz(proposal.total)}</span>
+											<p class="text-[10px] text-zinc-500">{proposal.items.length} {proposal.items.length === 1 ? 'item' : 'itens'}</p>
+										</div>
+									</div>
+
+									<div class="flex items-center justify-end gap-1.5 pt-2 border-t border-zinc-800/80 text-xs">
+										<button
+											type="button"
+											onclick={() => proposalsStore.openViewProposal(proposal)}
+											class="flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+										>
+											<Icon name="eye" class="w-3.5 h-3.5" />
+											<span>Ver</span>
+										</button>
+										<button
+											type="button"
+											onclick={() => handleDownloadLeadProposal(proposal)}
+											class="flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-100 hover:bg-zinc-100 hover:text-zinc-950 transition-colors cursor-pointer"
+											title="Descarregar PDF"
+										>
+											<Icon name="download" class="w-3.5 h-3.5" />
+											<span>PDF</span>
+										</button>
+										<button
+											type="button"
+											onclick={() => proposalsStore.openEditProposal(proposal)}
+											class="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+											title="Editar proposta"
+										>
+											<Icon name="edit" class="w-3.5 h-3.5" />
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="file-text" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhuma proposta emitida</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Crie orçamentos comerciais formais com serviços detalhados em Kwanzas para este cliente.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={() => proposalsStore.openNewProposal(lead)}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Criar Primeira Proposta
+							</button>
+						</div>
+					{/if}
 				</div>
 
 			<!-- TAB 2: NOTES & TIMELINE -->
