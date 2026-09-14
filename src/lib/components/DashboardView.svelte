@@ -106,6 +106,17 @@
 			crmStore.filters.priority = 'all';
 			crmStore.filters.city = 'all';
 		}
+		crmStore.filters.businessLine = 'all';
+		goto('/table');
+	}
+
+	function filterByBusiness(line: 'has_saas' | 'has_factflexi' | 'has_project' | 'has_contract') {
+		crmStore.filters.search = '';
+		crmStore.filters.businessLine = line;
+		crmStore.filters.hasWebsite = 'all';
+		crmStore.filters.priority = 'all';
+		crmStore.filters.status = 'all';
+		crmStore.filters.city = 'all';
 		goto('/table');
 	}
 
@@ -126,13 +137,13 @@
 		<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
 			<div class="space-y-1">
 				<div class="flex items-center gap-2">
-					<span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Diagnostico de Base</span>
+					<span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Diagnóstico de Base & Portfólio</span>
 				</div>
 				<h1 class="text-base sm:text-lg font-semibold text-zinc-100">
-					{crmStore.stats.missingWebsiteCount} empresas sem website registrado ({((crmStore.stats.missingWebsiteCount / crmStore.stats.totalLeads) * 100).toFixed(0)}% da base)
+					{crmStore.stats.missingWebsiteCount} empresas sem website registado ({((crmStore.stats.missingWebsiteCount / (crmStore.stats.totalLeads || 1)) * 100).toFixed(0)}% da base)
 				</h1>
 				<p class="text-xs text-zinc-400">
-					Segmento prioritario para prospeccao de desenvolvimento web, plataformas de catalogo e software de facturacao e gestao.
+					Segmento prioritário para prospeção de desenvolvimento web, plataformas de catálogo, SaaS Fact Flexi e assistência técnica.
 				</p>
 			</div>
 			
@@ -169,7 +180,116 @@
 		</div>
 	</div>
 
-	<!-- 4 Key Metrics Cards -->
+	<!-- SECTION: RECURRING REVENUE & MULTI-BUSINESS LINES (MRR/ARR) -->
+	<div class="space-y-3">
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-2">
+				<span class="rounded bg-sky-950/70 border border-sky-800/80 p-1 text-sky-400">
+					<Icon name="money" class="w-3.5 h-3.5" />
+				</span>
+				<h2 class="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
+					Receita Recorrente & Linhas de Negócio
+				</h2>
+			</div>
+			<span class="text-[11px] text-zinc-500 font-mono">
+				ARR Projetado: <strong class="text-sky-300">{formatKz(crmStore.stats.totalARR)}</strong>
+			</span>
+		</div>
+
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+			<!-- MRR Total -->
+			<div class="rounded-xl border border-sky-900/40 bg-sky-950/20 p-4 relative overflow-hidden">
+				<div class="flex items-center justify-between">
+					<span class="text-xs font-medium text-sky-300">MRR Recorrente Total</span>
+					<Icon name="money" class="w-4 h-4 text-sky-400" />
+				</div>
+				<div class="mt-2.5 flex items-baseline gap-2">
+					<span class="text-2xl font-semibold tracking-tight text-white font-mono">
+						{formatKz(crmStore.stats.totalMRR)}
+					</span>
+					<span class="text-[10px] text-sky-400 font-medium">/ mês</span>
+				</div>
+				<div class="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+					<span>SaaS: <strong class="text-sky-200 font-mono">{formatKz(crmStore.stats.saasMRR)}</strong></span>
+					<span>Suporte: <strong class="text-amber-300 font-mono">{formatKz(crmStore.stats.supportMRR)}</strong></span>
+				</div>
+			</div>
+
+			<!-- SaaS Subscriptions (Fact Flexi / CRM) -->
+			<button
+				type="button"
+				onclick={() => filterByBusiness('has_saas')}
+				class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-left hover:border-sky-800/80 hover:bg-zinc-900/70 transition-all cursor-pointer"
+			>
+				<div class="flex items-center justify-between">
+					<span class="text-xs font-medium text-zinc-400">Subscrições SaaS Ativas</span>
+					<Icon name="tag" class="w-4 h-4 text-sky-400" />
+				</div>
+				<div class="mt-2.5 flex items-baseline gap-2">
+					<span class="text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+						{crmStore.stats.activeSubscriptionsCount}
+					</span>
+					<span class="text-xs text-zinc-500">licenças</span>
+				</div>
+				<div class="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+					<span>Fact Flexi & Apps</span>
+					{#if crmStore.stats.expiringSoonSubscriptionsCount > 0}
+						<span class="text-amber-400 font-medium">
+							{crmStore.stats.expiringSoonSubscriptionsCount} a expirar em 30d
+						</span>
+					{:else}
+						<span class="text-emerald-400 font-medium">Em dia</span>
+					{/if}
+				</div>
+			</button>
+
+			<!-- Projects Web/App in Progress -->
+			<button
+				type="button"
+				onclick={() => filterByBusiness('has_project')}
+				class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-left hover:border-indigo-800/80 hover:bg-zinc-900/70 transition-all cursor-pointer"
+			>
+				<div class="flex items-center justify-between">
+					<span class="text-xs font-medium text-zinc-400">Projetos Web/App em Curso</span>
+					<Icon name="globe" class="w-4 h-4 text-indigo-400" />
+				</div>
+				<div class="mt-2.5 flex items-baseline gap-2">
+					<span class="text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+						{crmStore.stats.activeProjectsCount}
+					</span>
+					<span class="text-xs text-zinc-500">em produção</span>
+				</div>
+				<div class="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+					<span>Valor em carteira:</span>
+					<strong class="text-indigo-300 font-mono">{formatKz(crmStore.stats.activeProjectsValue)}</strong>
+				</div>
+			</button>
+
+			<!-- Support Contracts / Retainers -->
+			<button
+				type="button"
+				onclick={() => filterByBusiness('has_contract')}
+				class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-left hover:border-amber-800/80 hover:bg-zinc-900/70 transition-all cursor-pointer"
+			>
+				<div class="flex items-center justify-between">
+					<span class="text-xs font-medium text-zinc-400">Contratos de Assistência</span>
+					<Icon name="clock" class="w-4 h-4 text-amber-400" />
+				</div>
+				<div class="mt-2.5 flex items-baseline gap-2">
+					<span class="text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+						{crmStore.stats.activeSupportContractsCount}
+					</span>
+					<span class="text-xs text-zinc-500">avenças</span>
+				</div>
+				<div class="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+					<span>Helpdesk TI & Fiscal</span>
+					<strong class="text-amber-300 font-mono">{formatKz(crmStore.stats.supportMRR)}/mês</strong>
+				</div>
+			</button>
+		</div>
+	</div>
+
+	<!-- 4 Standard Pipeline Metrics Cards -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		
 		<!-- Metric 1: Total Leads -->
@@ -183,7 +303,7 @@
 				<span class="text-xs text-zinc-500">empresas</span>
 			</div>
 			<div class="mt-2 text-[11px] text-zinc-400">
-				<strong class="text-zinc-200 font-mono">{crmStore.stats.withPhoneCount}</strong> com contacto telefonico verificado
+				<strong class="text-zinc-200 font-mono">{crmStore.stats.withPhoneCount}</strong> com contacto telefónico verificado
 			</div>
 		</div>
 
@@ -207,7 +327,7 @@
 		<!-- Metric 3: Conversion Rate -->
 		<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-medium text-zinc-400">Taxa de Conversao</span>
+				<span class="text-xs font-medium text-zinc-400">Taxa de Conversão</span>
 				<Icon name="chart" class="w-4 h-4 text-zinc-500" />
 			</div>
 			<div class="mt-2.5 flex items-baseline gap-2">
@@ -217,7 +337,7 @@
 				<span class="text-xs text-zinc-400">({crmStore.stats.byStatus.won} fechados)</span>
 			</div>
 			<div class="mt-2 text-[11px] text-zinc-400">
-				<span class="text-zinc-300 font-mono">{crmStore.stats.byStatus.proposal}</span> propostas sob analise comercial
+				<span class="text-zinc-300 font-mono">{crmStore.stats.byStatus.proposal}</span> propostas sob análise comercial
 			</div>
 		</div>
 
@@ -234,7 +354,7 @@
 				<span class="text-xs text-zinc-500">leads</span>
 			</div>
 			<div class="mt-2 text-[11px] text-zinc-400 flex items-center gap-1.5">
-				<span>{crmStore.stats.byPriority.warm} media prioridade,</span>
+				<span>{crmStore.stats.byPriority.warm} média prioridade,</span>
 				<span>{crmStore.stats.byPriority.cold} baixa</span>
 			</div>
 		</div>
@@ -361,6 +481,134 @@
 				</div>
 			</div>
 		</div>
+	</div>
+
+	<!-- Multi-Business Line Portfolio: Active Projects & Upcoming SaaS Renewals -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		
+		<!-- Widget 1: Projetos Web & Apps em Desenvolvimento -->
+		<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
+			<div class="flex items-center justify-between">
+				<div>
+					<div class="flex items-center gap-2">
+						<span class="rounded bg-indigo-950/70 border border-indigo-800/80 p-1 text-indigo-400">
+							<Icon name="globe" class="w-3.5 h-3.5" />
+						</span>
+						<h3 class="text-sm font-semibold text-zinc-100">Projetos Web & App em Desenvolvimento</h3>
+					</div>
+					<p class="text-xs text-zinc-400 mt-0.5">
+						{crmStore.stats.activeProjectsCount} projetos ativos • <strong class="text-indigo-300 font-mono">{formatKz(crmStore.stats.activeProjectsValue)}</strong> em produção
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => filterByBusiness('has_project')}
+					class="text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
+				>
+					Ver Todos
+					<Icon name="chevron-right" class="w-3.5 h-3.5 text-zinc-400" />
+				</button>
+			</div>
+
+			{#if crmStore.stats.activeProjectsList.length === 0}
+				<div class="rounded-lg border border-dashed border-zinc-800/80 p-6 text-center text-xs text-zinc-500">
+					Nenhum projeto web/app em desenvolvimento ativo no momento.
+				</div>
+			{:else}
+				<div class="space-y-2.5">
+					{#each crmStore.stats.activeProjectsList.slice(0, 4) as item (item.project.id)}
+						<button
+							type="button"
+							onclick={() => crmStore.selectLead(item.lead)}
+							class="w-full text-left p-3 rounded-lg border border-zinc-800 bg-zinc-950/40 hover:border-indigo-800/70 hover:bg-zinc-900/50 transition-all cursor-pointer space-y-2"
+						>
+							<div class="flex items-start justify-between gap-2">
+								<div>
+									<h4 class="text-xs font-semibold text-white">{item.project.name}</h4>
+									<p class="text-[11px] text-zinc-400">Cliente: <strong class="text-zinc-200">{item.lead.title}</strong></p>
+								</div>
+								<div class="text-right">
+									<span class="text-xs font-mono font-bold text-emerald-400">{formatKz(item.project.estimatedValue)}</span>
+								</div>
+							</div>
+
+							<!-- Progress Bar -->
+							<div class="space-y-1">
+								<div class="flex items-center justify-between text-[10px] text-zinc-400">
+									<span class="capitalize">{item.project.stage.replace('_', ' ')}</span>
+									<span class="font-mono font-semibold text-zinc-300">{item.project.progress}%</span>
+								</div>
+								<div class="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+									<div class="h-full bg-indigo-500 rounded-full transition-all duration-300" style="width: {item.project.progress}%"></div>
+								</div>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Widget 2: Renovações de Licenças SaaS & Retainers -->
+		<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
+			<div class="flex items-center justify-between">
+				<div>
+					<div class="flex items-center gap-2">
+						<span class="rounded bg-sky-950/70 border border-sky-800/80 p-1 text-sky-400">
+							<Icon name="tag" class="w-3.5 h-3.5" />
+						</span>
+						<h3 class="text-sm font-semibold text-zinc-100">Renovações SaaS Prioritárias</h3>
+					</div>
+					<p class="text-xs text-zinc-400 mt-0.5">
+						Licenças e assinaturas com vencimento nos próximos 30 dias
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => filterByBusiness('has_saas')}
+					class="text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer"
+				>
+					Ver Todas
+					<Icon name="chevron-right" class="w-3.5 h-3.5 text-zinc-400" />
+				</button>
+			</div>
+
+			{#if crmStore.stats.expiringSubscriptionsList.length === 0}
+				<div class="rounded-lg border border-dashed border-zinc-800/80 p-6 text-center text-xs text-zinc-500">
+					Nenhuma licença SaaS a expirar nos próximos 30 dias. Todas em dia!
+				</div>
+			{:else}
+				<div class="space-y-2.5">
+					{#each crmStore.stats.expiringSubscriptionsList.slice(0, 4) as item (item.subscription.id)}
+						<button
+							type="button"
+							onclick={() => crmStore.selectLead(item.lead)}
+							class="w-full text-left p-3 rounded-lg border {item.daysUntil < 0 ? 'border-rose-900/60 bg-rose-950/20' : item.daysUntil <= 7 ? 'border-amber-900/60 bg-amber-950/20' : 'border-zinc-800 bg-zinc-950/40'} hover:border-sky-800/70 transition-all cursor-pointer"
+						>
+							<div class="flex items-start justify-between gap-2">
+								<div>
+									<div class="flex items-center gap-2">
+										<h4 class="text-xs font-semibold text-white">{item.subscription.productName}</h4>
+										<span class="rounded bg-sky-950 border border-sky-800/80 px-1.5 py-0.2 text-[10px] text-sky-300 font-medium">
+											{item.subscription.planName}
+										</span>
+									</div>
+									<p class="text-[11px] text-zinc-400 mt-0.5">
+										Cliente: <strong class="text-zinc-200">{item.lead.title}</strong>
+									</p>
+								</div>
+								<div class="text-right">
+									<div class="text-xs font-mono font-bold text-emerald-400">{formatKz(item.subscription.priceKz)}</div>
+									<span class="text-[10px] {item.daysUntil < 0 ? 'text-rose-400 font-bold' : item.daysUntil <= 7 ? 'text-amber-400 font-semibold' : 'text-zinc-400'}">
+										{item.daysUntil < 0 ? `Expirada há ${Math.abs(item.daysUntil)}d` : item.daysUntil === 0 ? 'Expira Hoje' : `Em ${item.daysUntil} dias`}
+									</span>
+								</div>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
 	</div>
 
 	<!-- Agenda & Stale Leads Widgets -->

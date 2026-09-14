@@ -60,6 +60,7 @@ class CRMState {
 		category: 'all',
 		hasWebsite: 'all',
 		hasPhone: 'all',
+		businessLine: 'all',
 		sortBy: 'title',
 		sortOrder: 'asc'
 	});
@@ -200,6 +201,26 @@ class CRMState {
 			result = result.filter(lead => !lead.phone || lead.phone.trim() === '');
 		}
 
+		// Business Line filter
+		if (this.filters.businessLine && this.filters.businessLine !== 'all') {
+			const bLine = this.filters.businessLine;
+			result = result.filter(lead => {
+				const hasSaaS = !!lead.subscriptions && lead.subscriptions.length > 0;
+				const hasFactFlexi = !!lead.subscriptions && lead.subscriptions.some(s =>
+					s.productName.toLowerCase().includes('fact flexi') || s.productName.toLowerCase().includes('factflexi')
+				);
+				const hasProj = !!lead.projects && lead.projects.length > 0;
+				const hasContract = !!lead.supportContracts && lead.supportContracts.length > 0;
+
+				if (bLine === 'has_saas') return hasSaaS;
+				if (bLine === 'has_factflexi') return hasFactFlexi;
+				if (bLine === 'has_project') return hasProj;
+				if (bLine === 'has_contract') return hasContract;
+				if (bLine === 'prospect_only') return !hasSaaS && !hasProj && !hasContract;
+				return true;
+			});
+		}
+
 		// Sorting
 		result.sort((a, b) => {
 			let comparison = 0;
@@ -252,6 +273,21 @@ class CRMState {
 		const cityCountMap: Record<string, number> = {};
 		const catCountMap: Record<string, number> = {};
 
+		// Recurring Revenue & Multi-Business Lines
+		let saasMRR = 0;
+		let supportMRR = 0;
+		let activeSubscriptionsCount = 0;
+		let expiringSoonSubscriptionsCount = 0;
+		let activeProjectsCount = 0;
+		let activeProjectsValue = 0;
+		let activeSupportContractsCount = 0;
+
+		const expiringSubscriptionsList: { lead: ClientLead; subscription: SaaSSubscription; daysUntil: number }[] = [];
+		const activeProjectsList: { lead: ClientLead; project: ClientProject }[] = [];
+
+		const nowMs = Date.now();
+		const thirtyDaysMs = 30 * 86400000;
+
 		for (const lead of this.leads) {
 			if (byStatus[lead.status] !== undefined) {
 				byStatus[lead.status]++;
@@ -279,7 +315,81 @@ class CRMState {
 
 			const cat = lead.categoryName || 'Geral';
 			catCountMap[cat] = (catCountMap[cat] || 0) + 1;
+
+			// SaaS Subscriptions calculations
+			if (lead.subscriptions && lead.subscriptions.length > 0) {
+				for (const sub of lead.subscriptions) {
+					if (sub.status === 'active' || sub.status === 'trial' || sub.status === 'expiring_soon') {
+						activeSubscriptionsCount++;
+						
+						// Calculate monthly equivalent in Kz
+						let monthlyVal = sub.priceKz;
+						if (sub.billingCycle === 'annual') monthlyVal = sub.priceKz / 12;
+						else if (sub.billingCycle === 'semiannual') monthlyVal = sub.priceKz / 6;
+						else if (sub.billingCycle === 'quarterly') monthlyVal = sub.priceKz / 3;
+						else if (sub.billingCycle === 'lifetime') monthlyVal = 0;
+
+						saasMRR += monthlyVal;
+
+						// Check if expiring in next 30 days or overdue
+						if (sub.renewalDate) {
+							const renewalTime = new Date(sub.renewalDate).getTime();
+							if (!isNaN(renewalTime)) {
+								const diffMs = renewalTime - nowMs;
+								const daysUntil = Math.round(diffMs / 86400000);
+								if (diffMs <= thirtyDaysMs) {
+									expiringSoonSubscriptionsCount++;
+									expiringSubscriptionsList.push({
+										lead,
+										subscription: sub,
+										daysUntil
+									});
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Projects calculations
+			if (lead.projects && lead.projects.length > 0) {
+				for (const proj of lead.projects) {
+					if (proj.stage !== 'completed') {
+						activeProjectsCount++;
+						activeProjectsValue += (proj.estimatedValue || 0);
+						activeProjectsList.push({
+							lead,
+							project: proj
+						});
+					}
+				}
+			}
+
+			// Support Contracts calculations
+			if (lead.supportContracts && lead.supportContracts.length > 0) {
+				for (const contract of lead.supportContracts) {
+					if (contract.status === 'active') {
+						activeSupportContractsCount++;
+						let monthlyVal = contract.priceKz;
+						if (contract.billingCycle === 'annual') monthlyVal = contract.priceKz / 12;
+						else if (contract.billingCycle === 'semiannual') monthlyVal = contract.priceKz / 6;
+						else if (contract.billingCycle === 'quarterly') monthlyVal = contract.priceKz / 3;
+						else if (contract.billingCycle === 'lifetime') monthlyVal = 0;
+
+						supportMRR += monthlyVal;
+					}
+				}
+			}
 		}
+
+		// Sort expiring subscriptions ascending by days until renewal
+		expiringSubscriptionsList.sort((a, b) => a.daysUntil - b.daysUntil);
+
+		// Sort active projects descending by value
+		activeProjectsList.sort((a, b) => (b.project.estimatedValue || 0) - (a.project.estimatedValue || 0));
+
+		const totalMRR = saasMRR + supportMRR;
+		const totalARR = totalMRR * 12;
 
 		const topCities = Object.entries(cityCountMap)
 			.map(([city, count]) => ({ city, count }))
@@ -305,7 +415,18 @@ class CRMState {
 			withPhoneCount,
 			missingPhoneCount,
 			topCities,
-			topCategories
+			topCategories,
+			totalMRR,
+			totalARR,
+			saasMRR,
+			supportMRR,
+			activeSubscriptionsCount,
+			expiringSoonSubscriptionsCount,
+			activeProjectsCount,
+			activeProjectsValue,
+			activeSupportContractsCount,
+			expiringSubscriptionsList,
+			activeProjectsList
 		};
 	});
 

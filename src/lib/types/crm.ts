@@ -140,6 +140,8 @@ export interface SaaSProductCatalogItem {
 }
 
 
+export type BusinessFilterLine = 'all' | 'has_saas' | 'has_factflexi' | 'has_project' | 'has_contract' | 'prospect_only';
+
 export interface CRMFilterOptions {
 	search: string;
 	status: LeadStatus | 'all';
@@ -148,6 +150,7 @@ export interface CRMFilterOptions {
 	category: string | 'all';
 	hasWebsite: 'all' | 'yes' | 'no';
 	hasPhone: 'all' | 'yes' | 'no';
+	businessLine?: BusinessFilterLine;
 	sortBy: 'title' | 'city' | 'status' | 'priority' | 'estimatedValue' | 'lastContactDate';
 	sortOrder: 'asc' | 'desc';
 }
@@ -164,6 +167,18 @@ export interface CRMStats {
 	missingPhoneCount: number;
 	topCities: { city: string; count: number }[];
 	topCategories: { category: string; count: number }[];
+	// Multi-Business Lines & Recurring Revenue Metrics
+	totalMRR: number;
+	totalARR: number;
+	saasMRR: number;
+	supportMRR: number;
+	activeSubscriptionsCount: number;
+	expiringSoonSubscriptionsCount: number;
+	activeProjectsCount: number;
+	activeProjectsValue: number;
+	activeSupportContractsCount: number;
+	expiringSubscriptionsList: { lead: ClientLead; subscription: SaaSSubscription; daysUntil: number }[];
+	activeProjectsList: { lead: ClientLead; project: ClientProject }[];
 }
 
 export interface FollowUpGroups {
