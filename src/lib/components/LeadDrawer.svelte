@@ -26,7 +26,7 @@
 	import { generateWhatsAppLink, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
 	import { formatKz } from '../utils/format';
 	import { generateProposalPDF } from '../utils/pdf-generator';
-	import { DEFAULT_SAAS_CATALOG } from '../data/defaults';
+	import { saasStore } from '../stores/saas.svelte';
 
 	import { toast } from '../stores/toast.svelte';
 
@@ -291,7 +291,7 @@
 	}
 
 	let currentCatalogProduct = $derived.by(() => {
-		return DEFAULT_SAAS_CATALOG.find((x) => x.name.toLowerCase() === formSubProduct.toLowerCase());
+		return saasStore.catalog.find((x) => x.name.toLowerCase() === formSubProduct.toLowerCase());
 	});
 
 	let availablePlansForCurrentProduct = $derived.by(() => {
@@ -310,7 +310,7 @@
 
 		isCustomProduct = false;
 		formSubProduct = productName;
-		const cat = DEFAULT_SAAS_CATALOG.find((x) => x.name === productName);
+		const cat = saasStore.catalog.find((x) => x.name === productName);
 		if (cat && cat.defaultPlans.length > 0) {
 			isCustomPlan = false;
 			formSubPlan = cat.defaultPlans[0].name;
@@ -389,7 +389,7 @@
 		formSubKey = sub.licenseKey || '';
 		formSubNotes = sub.notes || '';
 
-		const matchingCat = DEFAULT_SAAS_CATALOG.find((x) => x.name.toLowerCase() === sub.productName.toLowerCase());
+		const matchingCat = saasStore.catalog.find((x) => x.name.toLowerCase() === sub.productName.toLowerCase());
 		isCustomProduct = !matchingCat;
 		if (matchingCat) {
 			const matchingPlan = matchingCat.defaultPlans.find((x) => x.name.toLowerCase() === sub.planName.toLowerCase());
@@ -2303,7 +2303,7 @@
 					<div class="space-y-1.5">
 						<span class="block text-[11px] font-medium text-zinc-400">Selecionar do Catálogo:</span>
 						<div class="grid grid-cols-2 gap-2">
-							{#each DEFAULT_SAAS_CATALOG as catItem}
+							{#each saasStore.catalog as catItem}
 								<button
 									type="button"
 									onclick={() => handleProductSelect(catItem.name)}
@@ -2328,7 +2328,7 @@
 							onchange={(e) => handleProductSelect((e.target as HTMLSelectElement).value)}
 							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
 						>
-							{#each DEFAULT_SAAS_CATALOG as catItem}
+							{#each saasStore.catalog as catItem}
 								<option value={catItem.name}>{catItem.name} — {catItem.category}</option>
 							{/each}
 							<option value="custom">Outro Software (Personalizado)...</option>

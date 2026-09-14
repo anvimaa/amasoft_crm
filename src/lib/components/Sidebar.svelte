@@ -3,6 +3,7 @@
 	import { page } from "$app/state";
 	import { crmStore } from "../stores/crm.svelte";
 	import { companyStore } from "../stores/company.svelte";
+	import { saasStore } from "../stores/saas.svelte";
 	import { toast } from "../stores/toast.svelte";
 	import { formatKz } from "../utils/format";
 	import Icon from "./Icon.svelte";
@@ -20,6 +21,7 @@
 		dashboard: "/dashboard",
 		kanban: "/pipeline",
 		table: "/table",
+		saas: "/saas",
 		propostas: "/propostas",
 		templates: "/templates",
 		map: "/map",
@@ -250,6 +252,27 @@
 					<Icon name="file-text" class="w-4 h-4 text-zinc-400" />
 					<span>Propostas Comerciais</span>
 				</div>
+			</button>
+
+			<button
+				type="button"
+				onclick={() => navigateTo("saas")}
+				class="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-colors cursor-pointer {page
+					.url.pathname === '/saas'
+					? 'bg-zinc-800/90 text-white font-semibold'
+					: 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}"
+			>
+				<div class="flex items-center gap-2.5">
+					<Icon name="tag" class="w-4 h-4 text-sky-400" />
+					<span>Produtos & SaaS</span>
+				</div>
+				{#if saasStore.stats.activeCount > 0}
+					<span
+						class="rounded bg-sky-950/60 px-1.5 py-0.2 text-[10px] font-mono text-sky-300 border border-sky-900/40"
+					>
+						{saasStore.stats.activeCount}
+					</span>
+				{/if}
 			</button>
 
 			<button

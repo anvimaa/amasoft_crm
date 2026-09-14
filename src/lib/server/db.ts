@@ -1,13 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { ClientLead, CompanyProfile, TeamMember } from '../types/crm';
+import type { ClientLead, CompanyProfile, TeamMember, SaaSProductCatalogItem } from '../types/crm';
 import { INITIAL_LEADS } from '../data/initial-leads';
-import { DEFAULT_COMPANY, DEFAULT_TEAM } from '../data/defaults';
+import { DEFAULT_COMPANY, DEFAULT_TEAM, DEFAULT_SAAS_CATALOG } from '../data/defaults';
 
 const DB_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'crm-database.json');
 const COMPANY_FILE = path.join(DB_DIR, 'company-profile.json');
 const TEAM_FILE = path.join(DB_DIR, 'team-members.json');
+const SAAS_CATALOG_FILE = path.join(DB_DIR, 'saas-catalog.json');
 
 // In-memory cache — avoids fs.readFileSync on every request
 let _leadsCache: ClientLead[] | null = null;
@@ -129,6 +130,33 @@ export function saveTeam(members: TeamMember[]): boolean {
 		return true;
 	} catch (e) {
 		console.error('Error saving team-members.json:', e);
+		return false;
+	}
+}
+
+export function getSaaSCatalog(): SaaSProductCatalogItem[] {
+	ensureDbExists();
+	try {
+		if (fs.existsSync(SAAS_CATALOG_FILE)) {
+			const raw = fs.readFileSync(SAAS_CATALOG_FILE, 'utf-8');
+			const parsed = JSON.parse(raw);
+			if (Array.isArray(parsed) && parsed.length > 0) {
+				return parsed;
+			}
+		}
+	} catch (e) {
+		console.error('Error reading saas-catalog.json:', e);
+	}
+	return DEFAULT_SAAS_CATALOG;
+}
+
+export function saveSaaSCatalog(catalog: SaaSProductCatalogItem[]): boolean {
+	ensureDbExists();
+	try {
+		fs.writeFileSync(SAAS_CATALOG_FILE, JSON.stringify(catalog, null, 2), 'utf-8');
+		return true;
+	} catch (e) {
+		console.error('Error saving saas-catalog.json:', e);
 		return false;
 	}
 }

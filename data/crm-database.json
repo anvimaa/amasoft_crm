@@ -7588,6 +7588,12 @@
     ],
     "notes": [
       {
+        "id": "note-1789414959046",
+        "content": "Subscrição adicionada: Fact Flexi (Plano Profissional (Multi-Caixa)) - 350 000 Kz / annual.",
+        "createdAt": "2026-09-14T19:42:39.045Z",
+        "type": "general"
+      },
+      {
         "id": "note-1789335038171",
         "content": "Estágio alterado para \"Novo Lead\".",
         "createdAt": "2026-09-13T21:30:38.171Z",
@@ -7615,7 +7621,22 @@
       }
     ],
     "lastContactDate": "2026-09-13T21:30:38.171Z",
-    "nextFollowUpDate": null
+    "nextFollowUpDate": null,
+    "subscriptions": [
+      {
+        "productName": "Fact Flexi",
+        "planName": "Plano Profissional (Multi-Caixa)",
+        "billingCycle": "annual",
+        "priceKz": 350000,
+        "status": "active",
+        "startDate": "2026-09-14",
+        "renewalDate": "2027-09-14",
+        "licenseKey": "FF-G4LDXB-2026",
+        "id": "sub-1789414959045-jvx3",
+        "createdAt": "2026-09-14T19:42:39.045Z",
+        "updatedAt": "2026-09-14T19:42:39.045Z"
+      }
+    ]
   },
   {
     "id": "lead-imp-1789298104354-75",

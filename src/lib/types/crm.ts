@@ -126,17 +126,21 @@ export interface SupportContract {
 	updatedAt?: string;
 }
 
+export interface SaaSProductPlan {
+	id?: string;
+	name: string;
+	priceMonthlyKz: number;
+	priceAnnualKz: number;
+	features?: string[];
+}
+
 export interface SaaSProductCatalogItem {
 	id: string;
 	name: string;
 	category: string;
 	description: string;
-	defaultPlans: {
-		name: string;
-		priceMonthlyKz: number;
-		priceAnnualKz: number;
-		features?: string[];
-	}[];
+	icon?: string;
+	defaultPlans: SaaSProductPlan[];
 }
 
 
