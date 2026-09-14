@@ -46,10 +46,12 @@
 	let activeTab = $state<'whatsapp' | 'saas' | 'projects' | 'proposals' | 'contracts' | 'notes' | 'details'>('whatsapp');
 	let isWideMode = $state<boolean>(false);
 
-	// Subscription management state
 	let isSubModalOpen = $state<boolean>(false);
 	let editingSubId = $state<string | null>(null);
 	let deletingSub = $state<SaaSSubscription | null>(null);
+
+	let isCustomProduct = $state<boolean>(false);
+	let isCustomPlan = $state<boolean>(false);
 
 	let formSubProduct = $state<string>('Fact Flexi');
 	let formSubPlan = $state<string>('Plano Profissional (Multi-Caixa)');
@@ -262,33 +264,79 @@
 		return d.toISOString().slice(0, 10);
 	}
 
-	function handleSelectCatalogProduct(prodId: string) {
-		const p = DEFAULT_SAAS_CATALOG.find((x) => x.id === prodId);
-		if (p) {
-			formSubProduct = p.name;
-			const defaultPlan = p.defaultPlans[0];
-			if (defaultPlan) {
-				formSubPlan = defaultPlan.name;
-				formSubPrice = formSubCycle === 'annual' ? defaultPlan.priceAnnualKz : defaultPlan.priceMonthlyKz;
+	let currentCatalogProduct = $derived.by(() => {
+		return DEFAULT_SAAS_CATALOG.find((x) => x.name.toLowerCase() === formSubProduct.toLowerCase());
+	});
+
+	let availablePlansForCurrentProduct = $derived.by(() => {
+		return currentCatalogProduct ? currentCatalogProduct.defaultPlans : [];
+	});
+
+	function handleProductSelect(productName: string) {
+		if (productName === 'custom') {
+			isCustomProduct = true;
+			isCustomPlan = true;
+			formSubProduct = '';
+			formSubPlan = '';
+			formSubPrice = 0;
+			return;
+		}
+
+		isCustomProduct = false;
+		formSubProduct = productName;
+		const cat = DEFAULT_SAAS_CATALOG.find((x) => x.name === productName);
+		if (cat && cat.defaultPlans.length > 0) {
+			isCustomPlan = false;
+			formSubPlan = cat.defaultPlans[0].name;
+			updatePriceFromCatalog(cat, cat.defaultPlans[0].name, formSubCycle);
+		}
+		formSubRenewal = calculateRenewalDate(formSubStart, formSubCycle);
+	}
+
+	function handlePlanSelect(planName: string) {
+		if (planName === 'custom') {
+			isCustomPlan = true;
+			formSubPlan = '';
+			return;
+		}
+
+		isCustomPlan = false;
+		formSubPlan = planName;
+		const cat = currentCatalogProduct;
+		if (cat) {
+			updatePriceFromCatalog(cat, planName, formSubCycle);
+		}
+	}
+
+	function updatePriceFromCatalog(catItem: any, planName: string, cycle: BillingCycle) {
+		const pl = catItem.defaultPlans.find((x: any) => x.name === planName);
+		if (pl) {
+			if (cycle === 'annual') {
+				formSubPrice = pl.priceAnnualKz;
+			} else if (cycle === 'monthly') {
+				formSubPrice = pl.priceMonthlyKz;
+			} else if (cycle === 'quarterly') {
+				formSubPrice = pl.priceMonthlyKz * 3;
+			} else if (cycle === 'semiannual') {
+				formSubPrice = pl.priceMonthlyKz * 6;
+			} else if (cycle === 'lifetime') {
+				formSubPrice = pl.priceAnnualKz * 2.5;
 			}
-			formSubRenewal = calculateRenewalDate(formSubStart, formSubCycle);
 		}
 	}
 
 	function handleCycleChange(newCycle: BillingCycle) {
 		formSubCycle = newCycle;
 		formSubRenewal = calculateRenewalDate(formSubStart, newCycle);
-		const cat = DEFAULT_SAAS_CATALOG.find((x) => x.name.toLowerCase() === formSubProduct.toLowerCase());
-		if (cat) {
-			const pl = cat.defaultPlans.find((x) => x.name.toLowerCase() === formSubPlan.toLowerCase());
-			if (pl) {
-				formSubPrice = newCycle === 'annual' ? pl.priceAnnualKz : pl.priceMonthlyKz;
-			}
+		if (currentCatalogProduct && !isCustomPlan) {
+			updatePriceFromCatalog(currentCatalogProduct, formSubPlan, newCycle);
 		}
 	}
 
 	function openAddSubscription() {
 		editingSubId = null;
+		isCustomProduct = false;
+		isCustomPlan = false;
 		formSubProduct = 'Fact Flexi';
 		formSubPlan = 'Plano Profissional (Multi-Caixa)';
 		formSubCycle = 'annual';
@@ -314,6 +362,16 @@
 		formSubUrl = sub.instanceUrl || '';
 		formSubKey = sub.licenseKey || '';
 		formSubNotes = sub.notes || '';
+
+		const matchingCat = DEFAULT_SAAS_CATALOG.find((x) => x.name.toLowerCase() === sub.productName.toLowerCase());
+		isCustomProduct = !matchingCat;
+		if (matchingCat) {
+			const matchingPlan = matchingCat.defaultPlans.find((x) => x.name.toLowerCase() === sub.planName.toLowerCase());
+			isCustomPlan = !matchingPlan;
+		} else {
+			isCustomPlan = true;
+		}
+
 		isSubModalOpen = true;
 	}
 
@@ -1921,7 +1979,7 @@
 							{#each DEFAULT_SAAS_CATALOG as catItem}
 								<button
 									type="button"
-									onclick={() => handleSelectCatalogProduct(catItem.id)}
+									onclick={() => handleProductSelect(catItem.name)}
 									class="text-left rounded-lg border p-2.5 transition-colors cursor-pointer {formSubProduct === catItem.name ? 'border-sky-500 bg-sky-950/30 text-white' : 'border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-900'}"
 								>
 									<span class="font-semibold block text-xs">{catItem.name}</span>
@@ -1932,27 +1990,60 @@
 					</div>
 				{/if}
 
-				<!-- Product & Plan -->
+				<!-- Product & Plan Selectors -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<!-- Product Dropdown -->
 					<div class="space-y-1">
-						<label for="sub-product" class="block text-[11px] font-medium text-zinc-300">Software / Produto *</label>
-						<input
-							id="sub-product"
-							type="text"
-							bind:value={formSubProduct}
-							placeholder="Ex: Fact Flexi, Amasoft CRM..."
-							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-						/>
+						<label for="sub-product-select" class="block text-[11px] font-medium text-zinc-300">Software / Solução SaaS *</label>
+						<select
+							id="sub-product-select"
+							value={isCustomProduct ? 'custom' : formSubProduct}
+							onchange={(e) => handleProductSelect((e.target as HTMLSelectElement).value)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							{#each DEFAULT_SAAS_CATALOG as catItem}
+								<option value={catItem.name}>{catItem.name} — {catItem.category}</option>
+							{/each}
+							<option value="custom">Outro Software (Personalizado)...</option>
+						</select>
+
+						{#if isCustomProduct}
+							<input
+								type="text"
+								bind:value={formSubProduct}
+								placeholder="Digite o nome do software SaaS..."
+								class="w-full mt-1.5 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+							/>
+						{/if}
 					</div>
+
+					<!-- Plan Dropdown -->
 					<div class="space-y-1">
-						<label for="sub-plan" class="block text-[11px] font-medium text-zinc-300">Plano / Versão *</label>
-						<input
-							id="sub-plan"
-							type="text"
-							bind:value={formSubPlan}
-							placeholder="Ex: Plano Profissional, Multi-Caixa..."
-							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-						/>
+						<label for="sub-plan-select" class="block text-[11px] font-medium text-zinc-300">Plano / Modalidade *</label>
+						{#if !isCustomProduct && availablePlansForCurrentProduct.length > 0}
+							<select
+								id="sub-plan-select"
+								value={isCustomPlan ? 'custom' : formSubPlan}
+								onchange={(e) => handlePlanSelect((e.target as HTMLSelectElement).value)}
+								class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+							>
+								{#each availablePlansForCurrentProduct as planItem}
+									<option value={planItem.name}>
+										{planItem.name} ({formatKz(formSubCycle === 'annual' ? planItem.priceAnnualKz : planItem.priceMonthlyKz)})
+									</option>
+								{/each}
+								<option value="custom">Personalizado / Outro Plano...</option>
+							</select>
+						{/if}
+
+						{#if isCustomProduct || isCustomPlan}
+							<input
+								type="text"
+								bind:value={formSubPlan}
+								placeholder="Digite o nome do plano ou versão..."
+								class="w-full mt-1.5 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+							/>
+						{/if}
 					</div>
 				</div>
 
@@ -1966,16 +2057,21 @@
 							onchange={(e) => handleCycleChange((e.target as HTMLSelectElement).value as BillingCycle)}
 							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
 						>
-							<option value="monthly">Mensal</option>
-							<option value="quarterly">Trimestral (3 meses)</option>
+							<option value="annual">Anual (12 meses — Recomendado)</option>
+							<option value="monthly">Mensal (1 mês)</option>
 							<option value="semiannual">Semestral (6 meses)</option>
-							<option value="annual">Anual (12 meses)</option>
-							<option value="lifetime">Vitalício</option>
+							<option value="quarterly">Trimestral (3 meses)</option>
+							<option value="lifetime">Vitalício (Licença Definitiva)</option>
 						</select>
 					</div>
 
 					<div class="space-y-1">
-						<label for="sub-price" class="block text-[11px] font-medium text-zinc-300">Valor Recorrente (Kz) *</label>
+						<div class="flex items-center justify-between">
+							<label for="sub-price" class="block text-[11px] font-medium text-zinc-300">Valor Recorrente (Kz) *</label>
+							{#if currentCatalogProduct && !isCustomPlan}
+								<span class="text-[10px] text-zinc-400 font-mono">Tabela oficial</span>
+							{/if}
+						</div>
 						<input
 							id="sub-price"
 							type="number"
