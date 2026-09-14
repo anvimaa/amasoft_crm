@@ -29,7 +29,10 @@
 	};
 
 	function navigateTo(view: string) {
-		goto(VIEW_ROUTES[view] || "/dashboard");
+		const target = VIEW_ROUTES[view] || "/dashboard";
+		goto(target).catch(() => {
+			window.location.href = target;
+		});
 		onCloseMobile();
 	}
 
