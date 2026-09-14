@@ -19,7 +19,9 @@
 		ClientProject,
 		ProjectType,
 		ProjectStage,
-		SupportContract
+		SupportContract,
+		SupportContractType,
+		SupportContractStatus
 	} from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
 	import { formatKz } from '../utils/format';
@@ -27,6 +29,14 @@
 	import { DEFAULT_SAAS_CATALOG } from '../data/defaults';
 
 	import { toast } from '../stores/toast.svelte';
+
+	const BILLING_CYCLES: { id: BillingCycle; label: string }[] = [
+		{ id: 'monthly', label: 'Mensal' },
+		{ id: 'quarterly', label: 'Trimestral' },
+		{ id: 'semiannual', label: 'Semestral' },
+		{ id: 'annual', label: 'Anual' },
+		{ id: 'lifetime', label: 'Vitalício' }
+	];
 
 	let lead = $derived(crmStore.selectedLead);
 	let leadProposals = $derived.by(() => (lead ? proposalsStore.getProposalsByLead(lead.id) : []));
@@ -79,6 +89,22 @@
 	let formProjDemoUrl = $state<string>('');
 	let formProjRepoUrl = $state<string>('');
 	let formProjNotes = $state<string>('');
+
+	// Support Contracts management state
+	let isContractModalOpen = $state<boolean>(false);
+	let editingContractId = $state<string | null>(null);
+	let deletingContract = $state<SupportContract | null>(null);
+
+	let formContractTitle = $state<string>('');
+	let formContractType = $state<SupportContractType>('technical_support');
+	let formContractStatus = $state<SupportContractStatus>('active');
+	let formContractHours = $state<number>(10);
+	let formContractPrice = $state<number>(120000);
+	let formContractCycle = $state<BillingCycle>('monthly');
+	let formContractStart = $state<string>(new Date().toISOString().slice(0, 10));
+	let formContractEnd = $state<string>('');
+	let formContractSla = $state<string>('Atendimento presencial em até 4h e suporte remoto prioritário.');
+	let formContractNotes = $state<string>('');
 
 	// Contact & follow-up drafts (synced from selected lead)
 	let decisionMaker = $state<string>('');
@@ -591,6 +617,164 @@
 		deletingProject = null;
 	}
 
+	const SUPPORT_TYPE_CONFIG: Record<SupportContractType, { label: string; defaultHours: number; defaultPriceMonthly: number; defaultSla: string }> = {
+		technical_support: {
+			label: 'Assistência Técnica & Helpdesk TI',
+			defaultHours: 10,
+			defaultPriceMonthly: 120000,
+			defaultSla: 'Atendimento presencial em até 4h e suporte remoto prioritário.'
+		},
+		fiscal_consulting: {
+			label: 'Assessoria Fiscal & Faturação AGT',
+			defaultHours: 5,
+			defaultPriceMonthly: 75000,
+			defaultSla: 'Consultoria fiscal contínua, validação SAFT e suporte técnico AGT.'
+		},
+		sysadmin_infra: {
+			label: 'Gestão de Servidores & Redes',
+			defaultHours: 20,
+			defaultPriceMonthly: 250000,
+			defaultSla: 'Monitorização 24/7, backups diários de base de dados e resposta em até 2h.'
+		},
+		custom_retainer: {
+			label: 'Avença / Contrato Sob Medida',
+			defaultHours: 15,
+			defaultPriceMonthly: 150000,
+			defaultSla: 'Horas mensais flexíveis e equipa de suporte dedicada.'
+		}
+	};
+
+	const SUPPORT_STATUS_CONFIG: Record<SupportContractStatus, { label: string; bg: string; text: string; border: string }> = {
+		active: { label: 'Ativo', bg: 'bg-emerald-950/70', text: 'text-emerald-300', border: 'border-emerald-800/80' },
+		paused: { label: 'Pausado', bg: 'bg-amber-950/70', text: 'text-amber-300', border: 'border-amber-800/80' },
+		expired: { label: 'Expirado', bg: 'bg-rose-950/70', text: 'text-rose-300', border: 'border-rose-800/80' },
+		canceled: { label: 'Cancelado', bg: 'bg-zinc-800', text: 'text-zinc-400', border: 'border-zinc-700' }
+	};
+
+	function openAddSupportContract() {
+		editingContractId = null;
+		formContractType = 'technical_support';
+		const preset = SUPPORT_TYPE_CONFIG.technical_support;
+		formContractTitle = preset.label;
+		formContractStatus = 'active';
+		formContractHours = preset.defaultHours;
+		formContractPrice = preset.defaultPriceMonthly;
+		formContractCycle = 'monthly';
+		formContractStart = new Date().toISOString().slice(0, 10);
+		
+		const nextYear = new Date();
+		nextYear.setFullYear(nextYear.getFullYear() + 1);
+		formContractEnd = nextYear.toISOString().slice(0, 10);
+		formContractSla = preset.defaultSla;
+		formContractNotes = '';
+		isContractModalOpen = true;
+	}
+
+	function handleSupportTypeSelect(newType: SupportContractType) {
+		formContractType = newType;
+		const preset = SUPPORT_TYPE_CONFIG[newType];
+		if (preset) {
+			formContractTitle = preset.label;
+			formContractHours = preset.defaultHours;
+			formContractPrice = formContractCycle === 'annual' ? preset.defaultPriceMonthly * 10 : preset.defaultPriceMonthly;
+			formContractSla = preset.defaultSla;
+		}
+	}
+
+	function openEditSupportContract(c: SupportContract) {
+		editingContractId = c.id;
+		formContractTitle = c.title;
+		formContractType = c.type;
+		formContractStatus = c.status;
+		formContractHours = c.monthlyHours || 0;
+		formContractPrice = c.priceKz;
+		formContractCycle = c.billingCycle;
+		formContractStart = c.startDate;
+		formContractEnd = c.endDate || '';
+		formContractSla = c.slaDescription || '';
+		formContractNotes = c.notes || '';
+		isContractModalOpen = true;
+	}
+
+	function handleSaveSupportContract() {
+		if (!lead) return;
+		if (!formContractTitle.trim()) {
+			toast.error('Campo Obrigatório', 'Indique o título do contrato de assistência.');
+			return;
+		}
+
+		if (editingContractId) {
+			crmStore.updateSupportContract(lead.id, editingContractId, {
+				title: formContractTitle.trim(),
+				type: formContractType,
+				status: formContractStatus,
+				monthlyHours: Number(formContractHours) || undefined,
+				priceKz: Number(formContractPrice) || 0,
+				billingCycle: formContractCycle,
+				startDate: formContractStart,
+				endDate: formContractEnd || undefined,
+				slaDescription: formContractSla.trim() || undefined,
+				notes: formContractNotes.trim() || undefined
+			});
+			toast.success('Contrato Atualizado', `Contrato "${formContractTitle}" guardado com sucesso.`);
+		} else {
+			crmStore.addSupportContract(lead.id, {
+				title: formContractTitle.trim(),
+				type: formContractType,
+				status: formContractStatus,
+				monthlyHours: Number(formContractHours) || undefined,
+				priceKz: Number(formContractPrice) || 0,
+				billingCycle: formContractCycle,
+				startDate: formContractStart,
+				endDate: formContractEnd || undefined,
+				slaDescription: formContractSla.trim() || undefined,
+				notes: formContractNotes.trim() || undefined
+			});
+			toast.success('Contrato Registado', `Contrato "${formContractTitle}" associado.`);
+		}
+		isContractModalOpen = false;
+	}
+
+	function openDeleteSupportContract(c: SupportContract) {
+		deletingContract = c;
+	}
+
+	function confirmDeleteSupport() {
+		if (!lead || !deletingContract) return;
+		crmStore.deleteSupportContract(lead.id, deletingContract.id);
+		toast.info('Contrato Removido', `O contrato "${deletingContract.title}" foi eliminado.`);
+		deletingContract = null;
+	}
+
+	function sendSupportContractNotice(c: SupportContract) {
+		if (!lead) return;
+		if (!lead.phone) {
+			toast.error('Sem Telefone', 'O cliente não possui telefone registado para envio WhatsApp.');
+			return;
+		}
+
+		const comp = companyStore.company;
+		const cycleLabels: Record<BillingCycle, string> = {
+			monthly: 'Mensal',
+			quarterly: 'Trimestral',
+			semiannual: 'Semestral',
+			annual: 'Anual',
+			lifetime: 'Vitalício'
+		};
+
+		const bankSection = comp.bankIban
+			? `\n*Coordenadas Bancárias:*\n• *Banco:* ${comp.bankName || 'BAI'}\n• *IBAN:* ${comp.bankIban}\n• *Titular:* ${comp.bankAccountHolder || comp.name}`
+			: '';
+
+		const message = `*Contrato de Assistência Técnica & Suporte — ${comp.name}*\n\nEstimada equipa da *${lead.title}*,\n\nSegue o resumo do vosso contrato de suporte:\n\n• *Serviço:* ${c.title}\n• *Plano de Horas:* ${c.monthlyHours ? `${c.monthlyHours}h / mês` : 'Sob demanda'}\n• *Valor Recorrente:* *${formatKz(c.priceKz)}* (${cycleLabels[c.billingCycle]})\n• *Vigência:* Início em ${c.startDate}${c.endDate ? ` até ${c.endDate}` : ''}${c.slaDescription ? `\n• *SLA Garantido:* ${c.slaDescription}` : ''}${bankSection}\n\nFicamos à inteira disposição para qualquer solicitação técnica da vossa equipa.\n\nAtenciosamente,\n*${comp.name}*\n${comp.phone || ''}`;
+
+		const link = generateWhatsAppLink(lead.phone, message);
+		if (link) {
+			window.open(link, '_blank');
+			toast.success('WhatsApp de Suporte', 'Mensagem do contrato aberta no WhatsApp.');
+		}
+	}
+
 	function isValidEmail(v: string): boolean {
 		return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 	}
@@ -826,6 +1010,19 @@
 				{#if leadProjects.length > 0}
 					<span class="rounded-full bg-indigo-950 border border-indigo-800/80 px-1.5 py-0.2 text-[10px] font-mono text-indigo-300 font-bold">
 						{leadProjects.length}
+					</span>
+				{/if}
+			</button>
+			<button
+				type="button"
+				onclick={() => activeTab = 'contracts'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'contracts' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="clock" class="w-3.5 h-3.5 text-amber-400" />
+				Assistência & Contratos
+				{#if leadContracts.length > 0}
+					<span class="rounded-full bg-amber-950 border border-amber-800/80 px-1.5 py-0.2 text-[10px] font-mono text-amber-300 font-bold">
+						{leadContracts.length}
 					</span>
 				{/if}
 			</button>
@@ -1308,6 +1505,136 @@
 								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
 							>
 								Criar Primeiro Projeto
+							</button>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB: SUPPORT CONTRACTS & RETAINERS -->
+			{:else if activeTab === 'contracts'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between">
+						<div>
+							<h4 class="text-xs font-semibold text-zinc-200">
+								Assistência Técnica & Retainers Mensais ({leadContracts.length})
+							</h4>
+							<p class="text-[11px] text-zinc-500">
+								Contratos de suporte contínuo, banco de horas e assessoria técnica recorrente.
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={openAddSupportContract}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Novo Contrato</span>
+						</button>
+					</div>
+
+					{#if leadContracts.length > 0}
+						<div class="space-y-3">
+							{#each leadContracts as contract (contract.id)}
+								{@const typeInfo = SUPPORT_TYPE_CONFIG[contract.type] || { label: contract.type, icon: 'clock' }}
+								{@const statusInfo = SUPPORT_STATUS_CONFIG[contract.status] || { label: contract.status, bg: 'bg-zinc-800', text: 'text-zinc-300', border: 'border-zinc-700' }}
+								{@const cycleLabel = BILLING_CYCLES.find((c: { id: BillingCycle; label: string }) => c.id === contract.billingCycle)?.label || contract.billingCycle}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3 hover:border-zinc-700 transition-colors">
+									<!-- Contract Header -->
+									<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+										<div class="space-y-1">
+											<div class="flex items-center gap-2 flex-wrap">
+												<span class="font-semibold text-xs text-white">{contract.title}</span>
+												<span class="rounded bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+													{typeInfo.label}
+												</span>
+												<span class="rounded px-2 py-0.5 text-[10px] font-semibold border {statusInfo.bg} {statusInfo.text} {statusInfo.border}">
+													{statusInfo.label}
+												</span>
+											</div>
+											<div class="flex items-center gap-3 text-[11px] text-zinc-400">
+												<span>Início: {contract.startDate}</span>
+												{#if contract.endDate}
+													<span>• Vigência até: <strong class="text-zinc-300">{contract.endDate}</strong></span>
+												{/if}
+											</div>
+										</div>
+
+										<div class="text-right shrink-0">
+											<div class="font-mono text-sm font-bold text-emerald-400">
+												{formatKz(contract.priceKz)}
+											</div>
+											<span class="text-[10px] text-zinc-500 font-medium">
+												/ {cycleLabel.toLowerCase()}
+											</span>
+										</div>
+									</div>
+
+									<!-- Retainer details badge -->
+									{#if contract.monthlyHours && contract.monthlyHours > 0}
+										<div class="flex items-center gap-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 px-3 py-1.5 text-xs text-zinc-300">
+											<Icon name="clock" class="w-3.5 h-3.5 text-amber-400" />
+											<span>Banco de Horas: <strong class="text-white font-mono">{contract.monthlyHours}h</strong> / mês de assistência técnica</span>
+										</div>
+									{/if}
+
+									<!-- SLA & Scope Details -->
+									{#if contract.slaDescription}
+										<div class="rounded-lg bg-zinc-950/40 border border-zinc-800/60 p-2.5 text-xs text-zinc-300 space-y-1">
+											<span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Escopo do Suporte & SLA:</span>
+											<p class="text-zinc-300 whitespace-pre-line leading-relaxed">{contract.slaDescription}</p>
+										</div>
+									{/if}
+
+									<!-- Action Buttons -->
+									<div class="flex items-center justify-between pt-2 border-t border-zinc-800/60">
+										<button
+											type="button"
+											onclick={() => sendSupportContractNotice(contract)}
+											class="flex items-center gap-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1.2 text-xs font-semibold text-emerald-400 hover:bg-emerald-900/60 transition-colors cursor-pointer"
+										>
+											<Icon name="whatsapp" class="w-3.5 h-3.5" />
+											<span>Enviar Resumo WhatsApp</span>
+										</button>
+
+										<div class="flex items-center gap-1.5">
+											<button
+												type="button"
+												onclick={() => openEditSupportContract(contract)}
+												class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+												title="Editar Contrato"
+											>
+												<Icon name="edit" class="w-3.5 h-3.5" />
+											</button>
+											<button
+												type="button"
+												onclick={() => openDeleteSupportContract(contract)}
+												class="rounded-lg p-1.5 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-400 transition-colors cursor-pointer"
+												title="Eliminar Contrato"
+											>
+												<Icon name="trash" class="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="clock" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhum contrato de suporte ou retainer</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Garanta receita recorrente registando contratos de assistência técnica mensal, banco de horas e assessoria contínua.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={openAddSupportContract}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Criar Primeiro Contrato de Suporte
 							</button>
 						</div>
 					{/if}
@@ -2477,6 +2804,247 @@
 				>
 					<Icon name="trash" class="w-3.5 h-3.5" />
 					<span>Eliminar Projeto</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: SUPPORT CONTRACT EDITOR -->
+{#if isContractModalOpen}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Dialog -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-amber-950/60 p-2 text-amber-400 border border-amber-800/60">
+						<Icon name="clock" class="w-4 h-4" />
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-white">
+							{editingContractId ? 'Editar Contrato de Assistência' : 'Novo Contrato de Suporte / Retainer'}
+						</h3>
+						<p class="text-[11px] text-zinc-400">
+							{lead?.title}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => isContractModalOpen = false}
+					class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
+
+			<!-- Scrollable Form Body -->
+			<div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+				<!-- Contract Title -->
+				<div class="space-y-1">
+					<label for="contract-title" class="block text-[11px] font-medium text-zinc-300">Título / Objeto do Contrato *</label>
+					<input
+						id="contract-title"
+						type="text"
+						bind:value={formContractTitle}
+						placeholder="Ex: Retainer Mensal de Manutenção e Suporte TI..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+					/>
+				</div>
+
+				<!-- Type & Status -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="contract-type" class="block text-[11px] font-medium text-zinc-300">Tipo de Contrato</label>
+						<select
+							id="contract-type"
+							value={formContractType}
+							onchange={(e) => handleSupportTypeSelect((e.target as HTMLSelectElement).value as SupportContractType)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="technical_support">Assistência Técnica & Helpdesk TI</option>
+							<option value="fiscal_consulting">Assessoria Fiscal & Faturação AGT</option>
+							<option value="sysadmin_infra">Gestão de Servidores & Redes</option>
+							<option value="custom_retainer">Avença / Contrato Sob Medida</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-status" class="block text-[11px] font-medium text-zinc-300">Estado</label>
+						<select
+							id="contract-status"
+							bind:value={formContractStatus}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="active">Ativo (Vigente)</option>
+							<option value="paused">Pausado / Suspenso</option>
+							<option value="expired">Expirado</option>
+							<option value="canceled">Cancelado</option>
+						</select>
+					</div>
+				</div>
+
+				<!-- Price, Billing Cycle & Monthly Hours -->
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<div class="space-y-1">
+						<label for="contract-price" class="block text-[11px] font-medium text-zinc-300">Valor do Período (Kz)</label>
+						<input
+							id="contract-price"
+							type="number"
+							bind:value={formContractPrice}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-emerald-400 font-mono font-bold focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-cycle" class="block text-[11px] font-medium text-zinc-300">Ciclo de Cobrança</label>
+						<select
+							id="contract-cycle"
+							bind:value={formContractCycle}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							{#each BILLING_CYCLES as cycle}
+								<option value={cycle.id}>{cycle.label}</option>
+							{/each}
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-hours" class="block text-[11px] font-medium text-zinc-300">Horas / Mês (Opcional)</label>
+						<input
+							id="contract-hours"
+							type="number"
+							bind:value={formContractHours}
+							placeholder="Ex: 10"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 font-mono focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Dates -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="contract-start" class="block text-[11px] font-medium text-zinc-300">Data de Início do Contrato</label>
+						<input
+							id="contract-start"
+							type="date"
+							bind:value={formContractStart}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-end" class="block text-[11px] font-medium text-zinc-300">Data de Término / Validade (Opcional)</label>
+						<input
+							id="contract-end"
+							type="date"
+							bind:value={formContractEnd}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- SLA & Scope Details -->
+				<div class="space-y-1">
+					<label for="contract-sla" class="block text-[11px] font-medium text-zinc-300">Condições de SLA e Nível de Serviço</label>
+					<textarea
+						id="contract-sla"
+						bind:value={formContractSla}
+						rows="2"
+						placeholder="Ex: Tempo de resposta até 2 horas úteis para chamados críticos, atendimento presencial se necessário..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+
+				<!-- Notes -->
+				<div class="space-y-1">
+					<label for="contract-notes" class="block text-[11px] font-medium text-zinc-300">Observações Internas</label>
+					<textarea
+						id="contract-notes"
+						bind:value={formContractNotes}
+						rows="2"
+						placeholder="Ex: Fatura emitida todo dia 01 com vencimento a 15 dias..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => isContractModalOpen = false}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={handleSaveSupportContract}
+					class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+				>
+					<Icon name="check" class="w-3.5 h-3.5" />
+					<span>{editingContractId ? 'Salvar Alterações' : 'Criar Contrato'}</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: DELETE SUPPORT CONTRACT CONFIRMATION -->
+{#if deletingContract}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Contrato de Assistência?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação removerá o contrato <strong class="text-zinc-200">"{deletingContract.title}"</strong> da conta deste cliente.
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-2.5 text-xs font-mono space-y-1">
+						<div class="flex justify-between text-zinc-300">
+							<span>Tipo:</span>
+							<span class="text-zinc-100">{SUPPORT_TYPE_CONFIG[deletingContract.type]?.label || deletingContract.type}</span>
+						</div>
+						<div class="flex justify-between text-zinc-400 text-[11px]">
+							<span>Valor:</span>
+							<span class="text-emerald-400">{formatKz(deletingContract.priceKz)}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingContract = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteSupport}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Contrato</span>
 				</button>
 			</div>
 		</div>
