@@ -33,9 +33,17 @@
 		}
 	}
 
+	let deletingProposal = $state<CommercialProposal | null>(null);
+
 	function handleDelete(p: CommercialProposal) {
-		proposalsStore.deleteProposal(p.id);
-		toast.info('Proposta Removida', `A proposta ${p.code} foi excluída.`);
+		deletingProposal = p;
+	}
+
+	function confirmDeleteProposal() {
+		if (!deletingProposal) return;
+		proposalsStore.deleteProposal(deletingProposal.id);
+		toast.info('Proposta Removida', `A proposta ${deletingProposal.code} foi excluída com sucesso.`);
+		deletingProposal = null;
 	}
 </script>
 
@@ -284,3 +292,61 @@
 		</div>
 	{/if}
 </div>
+
+{#if deletingProposal}
+	<!-- Static Backdrop (does not close on click) -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Proposta Comercial?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação é irreversível. Tem a certeza de que deseja eliminar permanentemente a proposta <strong class="text-zinc-200">{deletingProposal.code}</strong>?
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-3 space-y-1 text-xs">
+						<div class="flex items-center justify-between text-zinc-300">
+							<span class="text-zinc-400">Cliente:</span>
+							<span class="font-semibold text-white">{deletingProposal.leadTitle}</span>
+						</div>
+						<div class="flex items-center justify-between text-zinc-300">
+							<span class="text-zinc-400">Total Cotado:</span>
+							<span class="font-mono font-bold text-emerald-400">{formatKz(deletingProposal.total)}</span>
+						</div>
+						<div class="flex items-center justify-between text-zinc-400 text-[11px]">
+							<span>Emitida em:</span>
+							<span class="font-mono">{deletingProposal.issueDate}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingProposal = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteProposal}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Proposta</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+

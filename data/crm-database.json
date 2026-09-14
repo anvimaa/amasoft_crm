@@ -17,7 +17,7 @@
     "countryCode": "AO",
     "location": null,
     "plusCode": null,
-    "status": "lead",
+    "status": "proposal",
     "priority": "warm",
     "estimatedValue": 100000,
     "tags": [
@@ -25,12 +25,26 @@
       "Telefone Válido",
       "Luanda"
     ],
-    "lastContactDate": "2026-09-13T21:30:20.814Z",
+    "lastContactDate": "2026-09-14T10:32:00.277Z",
     "nextFollowUpDate": null,
     "decisionMaker": "DOMINGOS DRUPET",
     "assignedTo": "António Mantente",
     "id": "lead-custom-1789329819659",
     "notes": [
+      {
+        "id": "note-1789381920277",
+        "content": "Estágio alterado para \"Proposta Enviada\".",
+        "createdAt": "2026-09-14T10:32:00.277Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1789381920233",
+        "content": "Proposta Comercial emitida: PROP-2026-001 no valor de 850 000 Kz.",
+        "createdAt": "2026-09-14T10:32:00.233Z",
+        "type": "general",
+        "outcome": null,
+        "nextFollowUpDate": null
+      },
       {
         "id": "note-1789335020814",
         "content": "Estágio alterado para \"Novo Lead\".",

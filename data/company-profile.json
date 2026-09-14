@@ -9,5 +9,9 @@
   "address": "Luanda, Angola",
   "city": "Luanda",
   "logoUrl": "",
-  "slogan": "Soluções tecnológicas para empresas em Angola"
+  "slogan": "Soluções tecnológicas para empresas em Angola",
+  "bankName": "BFA",
+  "bankIban": "AO06 0006 0000 8663 4095 3013 4",
+  "bankAccountHolder": "AMANTENTE SOFT - COMERCIO & SERVIÇOS, LDA",
+  "bankSwift": "BFAPL3"
 }

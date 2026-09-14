@@ -92,10 +92,11 @@
 				status = 'draft';
 				issueDate = getFormattedDate(0);
 				validUntil = getFormattedDate(15);
-				taxPercent = 0;
-				paymentTerms = '50% na adjudicação + 50% na entrega e homologação';
-				deliveryTerms = '10 a 15 dias úteis após validação dos requisitos';
-				bankDetails = `Banco BAI: AO06 0040 0000 1234 5678 9012 3\nTitular: ${companyStore.company.name}`;
+				const c = companyStore.company;
+				const bankNameStr = c.bankName || 'Banco BAI';
+				const ibanStr = c.bankIban || 'AO06 0040 0000 1234 5678 9012 3';
+				const holderStr = c.bankAccountHolder || c.name;
+				bankDetails = `${bankNameStr}: ${ibanStr}\nTitular: ${holderStr}`;
 				notes = 'Proposta sujeita aos termos e condições gerais de prestação de serviços tecnológicos.';
 
 				items = [
@@ -482,7 +483,7 @@
 								bind:value={taxPercent}
 								class="rounded bg-zinc-900 border border-zinc-800 px-2 py-1 text-xs text-zinc-200 focus:outline-none cursor-pointer"
 							>
-								<option value={0}>Isento de IVA (0%)</option>
+								<option value={0}>Isento M04 - Regime de Exclusão (0%)</option>
 								<option value={14}>IVA Geral Angola (14%)</option>
 								<option value={5}>Regime Simplificado (5%)</option>
 							</select>

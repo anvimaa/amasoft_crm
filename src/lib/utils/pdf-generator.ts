@@ -28,20 +28,39 @@ export function generateProposalPDF(
 
 	let currentY = margin;
 
-	// 1. HEADER SECTION
-	// Left: Company Info
+	// =========================================================================
+	// 1. HEADER SECTION (60% Company Data / 40% Document Metadata)
+	// =========================================================================
+	const leftColWidth = contentWidth * 0.60; // 108mm
+	const rightColWidth = contentWidth * 0.40; // 72mm
+
+	// --- LEFT COLUMN (60%): Company Identity ---
+	let leftY = currentY;
+
+	// Company Name (Wrapped into lines if long)
+	const companyName = company.name || 'Amasoft Technologies';
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(16);
+	doc.setFontSize(13);
 	doc.setTextColor(...colorDark);
-	doc.text(company.name || 'Amasoft Technologies', margin, currentY + 5);
+	const splitCompanyName: string[] = doc.splitTextToSize(companyName, leftColWidth);
+	doc.text(splitCompanyName, margin, leftY + 4);
+	leftY += splitCompanyName.length * 5 + 1;
 
-	doc.setFont('helvetica', 'italic');
-	doc.setFontSize(8.5);
-	doc.setTextColor(...colorMuted);
-	doc.text(company.slogan || 'Soluções Tecnológicas e Consultoria B2B', margin, currentY + 10);
+	// Slogan (Wrapped if long)
+	if (company.slogan && company.slogan.trim()) {
+		doc.setFont('helvetica', 'italic');
+		doc.setFontSize(8);
+		doc.setTextColor(...colorMuted);
+		const splitSlogan: string[] = doc.splitTextToSize(company.slogan, leftColWidth);
+		doc.text(splitSlogan, margin, leftY + 2);
+		leftY += splitSlogan.length * 3.6 + 2;
+	} else {
+		leftY += 1.5;
+	}
 
+	// Company Details (NIF, Tel, Email, Website, Address)
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
+	doc.setFontSize(7.5);
 	doc.setTextColor(80, 80, 80);
 	const companyContactLines = [
 		`NIF: ${company.nif || 'Não informado'}`,
@@ -50,33 +69,38 @@ export function generateProposalPDF(
 		company.address ? `${company.address}${company.city ? ', ' + company.city : ''}` : ''
 	].filter(Boolean);
 
-	let compLineY = currentY + 15;
 	for (const line of companyContactLines) {
-		doc.text(line, margin, compLineY);
-		compLineY += 4;
+		const splitLine: string[] = doc.splitTextToSize(line, leftColWidth);
+		doc.text(splitLine, margin, leftY + 2);
+		leftY += splitLine.length * 3.6;
 	}
 
-	// Right: Proposal Meta Badge
+	// --- RIGHT COLUMN (40%): Document Metadata ---
+	let rightY = currentY;
+
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(14);
+	doc.setFontSize(13);
 	doc.setTextColor(...colorDark);
-	doc.text('PROPOSTA COMERCIAL', pageWidth - margin, currentY + 5, { align: 'right' });
+	doc.text('PROPOSTA COMERCIAL', pageWidth - margin, rightY + 4, { align: 'right' });
 
 	// Proposal Code Badge
+	const badgeWidth = 46;
+	const badgeHeight = 6.5;
+	const badgeX = pageWidth - margin - badgeWidth;
 	doc.setFillColor(...colorDark);
-	doc.roundedRect(pageWidth - margin - 46, currentY + 8, 46, 7, 1.5, 1.5, 'F');
+	doc.roundedRect(badgeX, rightY + 7, badgeWidth, badgeHeight, 1.2, 1.2, 'F');
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(9);
+	doc.setFontSize(8.5);
 	doc.setTextColor(255, 255, 255);
-	doc.text(proposal.code, pageWidth - margin - 23, currentY + 12.8, { align: 'center' });
+	doc.text(proposal.code, badgeX + badgeWidth / 2, rightY + 11.5, { align: 'center' });
 
-	// Meta info
+	// Metadata Details
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
+	doc.setFontSize(7.5);
 	doc.setTextColor(...colorMuted);
-	doc.text(`Data de Emissão: ${proposal.issueDate}`, pageWidth - margin, currentY + 20, { align: 'right' });
-	doc.text(`Válida até: ${proposal.validUntil}`, pageWidth - margin, currentY + 24.5, { align: 'right' });
-	
+	doc.text(`Data de Emissão: ${proposal.issueDate}`, pageWidth - margin, rightY + 18, { align: 'right' });
+	doc.text(`Válida até: ${proposal.validUntil}`, pageWidth - margin, rightY + 22, { align: 'right' });
+
 	const statusLabels: Record<string, string> = {
 		draft: 'RASCUNHO',
 		sent: 'ENVIADA',
@@ -84,50 +108,65 @@ export function generateProposalPDF(
 		rejected: 'RECUSADA'
 	};
 	doc.setFont('helvetica', 'bold');
+	doc.setFontSize(8);
 	doc.setTextColor(...colorEmerald);
-	doc.text(`Estado: ${statusLabels[proposal.status] || 'EMITIDA'}`, pageWidth - margin, currentY + 29, { align: 'right' });
+	doc.text(`Estado: ${statusLabels[proposal.status] || 'EMITIDA'}`, pageWidth - margin, rightY + 26.5, { align: 'right' });
+	rightY += 29;
 
-	currentY = Math.max(compLineY + 2, currentY + 34);
+	// Advance past the tallest column with safe padding
+	currentY = Math.max(leftY, rightY) + 3;
 
-	// Divider
+	// Divider Line
 	doc.setDrawColor(...colorSubtle);
 	doc.setLineWidth(0.4);
 	doc.line(margin, currentY, pageWidth - margin, currentY);
-	currentY += 6;
+	currentY += 5;
 
-	// 2. CLIENT RECIPIENT BOX
+	// =========================================================================
+	// 2. CLIENT RECIPIENT BOX (Dynamic height for long client names)
+	// =========================================================================
+	doc.setFont('helvetica', 'bold');
+	doc.setFontSize(10.5);
+	const splitClientName: string[] = doc.splitTextToSize(proposal.leadTitle, contentWidth - 40);
+	const clientNameHeight = splitClientName.length * 4.5;
+	const clientBoxHeight = Math.max(24, 16 + clientNameHeight);
+
 	doc.setFillColor(...colorCardBg);
 	doc.setDrawColor(...colorSubtle);
-	doc.roundedRect(margin, currentY, contentWidth, 24, 2, 2, 'FD');
+	doc.roundedRect(margin, currentY, contentWidth, clientBoxHeight, 2, 2, 'FD');
 
 	// Left Box Header
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(7.5);
+	doc.setFontSize(7);
 	doc.setTextColor(...colorMuted);
-	doc.text('DESTINATÁRIO / DADOS DO CLIENTE', margin + 4, currentY + 5.5);
+	doc.text('DESTINATÁRIO / DADOS DO CLIENTE', margin + 4, currentY + 5);
 
 	// Client Name
 	doc.setFont('helvetica', 'bold');
-	doc.setFontSize(11);
+	doc.setFontSize(10.5);
 	doc.setTextColor(...colorDark);
-	doc.text(proposal.leadTitle, margin + 4, currentY + 11.5);
+	doc.text(splitClientName, margin + 4, currentY + 10);
 
-	// Client details
+	let clientDetailY = currentY + 10 + clientNameHeight + 0.5;
+
+	// Client Details
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8);
+	doc.setFontSize(7.5);
 	doc.setTextColor(70, 70, 70);
 	const leadInfo1 = `Decisor / Contacto: ${proposal.leadContact || 'Direção Comercial'}${proposal.leadPhone ? ' (' + proposal.leadPhone + ')' : ''}`;
 	const leadInfo2 = `Sector: ${proposal.leadCategory || 'Prestação de Serviços'}${proposal.leadCity ? ' | Local: ' + proposal.leadCity : ''}`;
-	doc.text(leadInfo1, margin + 4, currentY + 16.5);
-	doc.text(leadInfo2, margin + 4, currentY + 20.5);
+	doc.text(leadInfo1, margin + 4, clientDetailY);
+	doc.text(leadInfo2, margin + 4, clientDetailY + 3.8);
 
 	if (proposal.leadNif) {
-		doc.text(`NIF Cliente: ${proposal.leadNif}`, pageWidth - margin - 4, currentY + 11.5, { align: 'right' });
+		doc.text(`NIF Cliente: ${proposal.leadNif}`, pageWidth - margin - 4, currentY + 10, { align: 'right' });
 	}
 
-	currentY += 30;
+	currentY += clientBoxHeight + 5;
 
+	// =========================================================================
 	// 3. PROPOSAL ITEMS TABLE
+	// =========================================================================
 	const tableHeaders = [
 		[
 			{ content: '#', styles: { halign: 'center' as const } },
@@ -182,13 +221,15 @@ export function generateProposalPDF(
 	currentY = lastAutoTable ? lastAutoTable.finalY + 6 : currentY + 40;
 
 	// Check if we need a new page for totals & terms
-	if (currentY + 80 > pageHeight - margin) {
+	if (currentY + 75 > pageHeight - margin) {
 		doc.addPage();
 		currentY = margin;
 	}
 
+	// =========================================================================
 	// 4. FINANCIAL SUMMARY (Right-aligned)
-	const summaryWidth = 85;
+	// =========================================================================
+	const summaryWidth = 92;
 	const summaryX = pageWidth - margin - summaryWidth;
 
 	doc.setFillColor(...colorCardBg);
@@ -196,12 +237,12 @@ export function generateProposalPDF(
 	doc.roundedRect(summaryX, currentY, summaryWidth, 26, 1.5, 1.5, 'FD');
 
 	doc.setFont('helvetica', 'normal');
-	doc.setFontSize(8.5);
+	doc.setFontSize(8);
 	doc.setTextColor(80, 80, 80);
 	doc.text('Subtotal:', summaryX + 4, currentY + 6);
 	doc.text(formatKz(proposal.subtotal), pageWidth - margin - 4, currentY + 6, { align: 'right' });
 
-	const taxLabel = proposal.taxPercent > 0 ? `IVA (${proposal.taxPercent}%):` : 'IVA (Isento Art. 12.º):';
+	const taxLabel = proposal.taxPercent > 0 ? `IVA (${proposal.taxPercent}%):` : 'IVA (Isento M04 - Regime de Exclusão):';
 	doc.text(taxLabel, summaryX + 4, currentY + 12);
 	doc.text(formatKz(proposal.taxAmount), pageWidth - margin - 4, currentY + 12, { align: 'right' });
 
@@ -214,11 +255,14 @@ export function generateProposalPDF(
 	doc.text('TOTAL GERAL:', summaryX + 5, currentY + 21.5);
 	doc.text(formatKz(proposal.total), pageWidth - margin - 5, currentY + 21.5, { align: 'right' });
 
-	// 5. COMMERCIAL TERMS & BANK DETAILS (Left side of Summary or Below)
+	// =========================================================================
+	// 5. COMMERCIAL TERMS & BANK DETAILS (Left side of Summary)
+	// =========================================================================
 	const termsWidth = contentWidth - summaryWidth - 6;
+	const termsCardHeight = 31;
 	doc.setFillColor(...colorCardBg);
 	doc.setDrawColor(...colorSubtle);
-	doc.roundedRect(margin, currentY, termsWidth, 26, 1.5, 1.5, 'FD');
+	doc.roundedRect(margin, currentY, termsWidth, termsCardHeight, 1.5, 1.5, 'FD');
 
 	doc.setFont('helvetica', 'bold');
 	doc.setFontSize(7.5);
@@ -228,32 +272,41 @@ export function generateProposalPDF(
 	doc.setFont('helvetica', 'normal');
 	doc.setFontSize(7.5);
 	doc.setTextColor(60, 60, 60);
-	doc.text(`Condições: ${proposal.paymentTerms || '50% na adjudicação / 50% na entrega'}`, margin + 4, currentY + 10.5);
-	doc.text(`Prazo de Entrega: ${proposal.deliveryTerms || 'Imediato / A combinar'}`, margin + 4, currentY + 15);
+	doc.text(`Condições: ${proposal.paymentTerms || '50% na adjudicação / 50% na entrega'}`, margin + 4, currentY + 10.2);
+	doc.text(`Prazo de Entrega: ${proposal.deliveryTerms || 'Imediato / A combinar'}`, margin + 4, currentY + 14.2);
 	
-	const ibanText = company.bankIban || proposal.bankDetails || 'Solicitar coordenadas na aceitação';
-	const bankText = company.bankName ? `${company.bankName} · ` : '';
+	const bankNameStr = company.bankName || 'Banco BAI';
+	const ibanStr = company.bankIban || proposal.bankDetails || 'AO06 0040 0000 1234 5678 9012 3';
+	const holderStr = company.bankAccountHolder || company.name;
+
 	doc.setFont('helvetica', 'bold');
-	doc.text(`IBAN: ${bankText}${ibanText}`, margin + 4, currentY + 20);
+	doc.setTextColor(...colorDark);
+	doc.text(`BANCO: ${bankNameStr}`, margin + 4, currentY + 18.8);
+	doc.text(`IBAN: ${ibanStr}`, margin + 4, currentY + 22.8);
+	doc.text(`Titular: ${holderStr}`, margin + 4, currentY + 26.8);
 
-	currentY += 34;
+	currentY += termsCardHeight + 5;
 
+	// =========================================================================
 	// 6. NOTES (if any)
+	// =========================================================================
 	if (proposal.notes && proposal.notes.trim()) {
 		doc.setFont('helvetica', 'italic');
 		doc.setFontSize(7.5);
 		doc.setTextColor(...colorMuted);
-		const splitNotes = doc.splitTextToSize(`Observações: ${proposal.notes}`, contentWidth);
+		const splitNotes: string[] = doc.splitTextToSize(`Observações: ${proposal.notes}`, contentWidth);
 		doc.text(splitNotes, margin, currentY);
 		currentY += splitNotes.length * 3.5 + 4;
 	}
 
+	// =========================================================================
 	// 7. SIGNATURES AREA
+	// =========================================================================
 	if (currentY + 38 > pageHeight - margin) {
 		doc.addPage();
 		currentY = margin + 10;
 	} else {
-		currentY += 6;
+		currentY += 4;
 	}
 
 	const sigBoxWidth = (contentWidth - 10) / 2;
@@ -261,28 +314,30 @@ export function generateProposalPDF(
 	// Left Signature (Company)
 	doc.setDrawColor(...colorSubtle);
 	doc.setLineWidth(0.3);
-	doc.line(margin, currentY + 18, margin + sigBoxWidth, currentY + 18);
+	doc.line(margin, currentY + 16, margin + sigBoxWidth, currentY + 16);
 	doc.setFont('helvetica', 'bold');
 	doc.setFontSize(8);
 	doc.setTextColor(...colorDark);
-	doc.text(`Por ${company.name || 'A Direção'}`, margin + sigBoxWidth / 2, currentY + 22, { align: 'center' });
+	doc.text(`Por ${company.name || 'A Direção'}`, margin + sigBoxWidth / 2, currentY + 20, { align: 'center' });
 	doc.setFont('helvetica', 'normal');
 	doc.setFontSize(7);
 	doc.setTextColor(...colorMuted);
-	doc.text('Departamento Comercial / Emitente', margin + sigBoxWidth / 2, currentY + 26, { align: 'center' });
+	doc.text('Departamento Comercial / Emitente', margin + sigBoxWidth / 2, currentY + 24, { align: 'center' });
 
 	// Right Signature (Client Acceptance)
-	doc.line(margin + sigBoxWidth + 10, currentY + 18, pageWidth - margin, currentY + 18);
+	doc.line(margin + sigBoxWidth + 10, currentY + 16, pageWidth - margin, currentY + 16);
 	doc.setFont('helvetica', 'bold');
 	doc.setFontSize(8);
 	doc.setTextColor(...colorDark);
-	doc.text(`Por ${proposal.leadTitle}`, margin + sigBoxWidth + 10 + sigBoxWidth / 2, currentY + 22, { align: 'center' });
+	doc.text(`Por ${proposal.leadTitle}`, margin + sigBoxWidth + 10 + sigBoxWidth / 2, currentY + 20, { align: 'center' });
 	doc.setFont('helvetica', 'normal');
 	doc.setFontSize(7);
 	doc.setTextColor(...colorMuted);
-	doc.text('Aceitação / Carimbo e Assinatura', margin + sigBoxWidth + 10 + sigBoxWidth / 2, currentY + 26, { align: 'center' });
+	doc.text('Aceitação / Carimbo e Assinatura', margin + sigBoxWidth + 10 + sigBoxWidth / 2, currentY + 24, { align: 'center' });
 
+	// =========================================================================
 	// 8. MULTI-PAGE NUMBERING & FOOTER
+	// =========================================================================
 	const totalPages = doc.getNumberOfPages();
 	for (let i = 1; i <= totalPages; i++) {
 		doc.setPage(i);

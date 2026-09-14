@@ -285,9 +285,9 @@
 									<span class="text-zinc-200 print:text-black">{formatKz(p.taxAmount)}</span>
 								</div>
 							{:else}
-								<div class="flex justify-between text-[10px] text-zinc-500 print:text-zinc-500">
-									<span>Imposto:</span>
-									<span>Isento de IVA</span>
+								<div class="flex justify-between text-[10px] text-zinc-400 print:text-zinc-600">
+									<span>IVA (Isento M04 - Regime de Exclusão):</span>
+									<span class="text-zinc-200 print:text-black font-semibold">0 Kz</span>
 								</div>
 							{/if}
 
@@ -321,8 +321,10 @@
 							<span class="text-[10px] font-semibold text-zinc-400 print:text-zinc-600 uppercase tracking-wider block">
 								Coordenadas Bancárias para Adjudicação
 							</span>
-							<div class="font-mono text-[11px] text-zinc-300 print:text-black whitespace-pre-wrap">
-								{p.bankDetails}
+							<div class="font-mono text-[11px] text-zinc-200 print:text-black space-y-0.5">
+								<p><span class="text-zinc-400 print:text-zinc-600 font-semibold">BANCO:</span> {comp.bankName || 'Banco BAI'}</p>
+								<p><span class="text-zinc-400 print:text-zinc-600 font-semibold">IBAN:</span> {comp.bankIban || p.bankDetails || 'AO06 0040 0000 1234 5678 9012 3'}</p>
+								<p><span class="text-zinc-400 print:text-zinc-600 font-semibold">Titular:</span> {comp.bankAccountHolder || comp.name}</p>
 							</div>
 						</div>
 					</div>

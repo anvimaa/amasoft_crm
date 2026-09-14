@@ -11,7 +11,11 @@ export const DEFAULT_COMPANY: CompanyProfile = {
 	address: 'Rua Rainha Ginga, Edifício Kilamba, 4º Andar, Luanda, Angola',
 	city: 'Luanda',
 	logoUrl: '',
-	slogan: 'Soluções tecnológicas & inovação empresarial em Angola'
+	slogan: 'Soluções tecnológicas & inovação empresarial em Angola',
+	bankName: 'Banco BAI',
+	bankIban: 'AO06 0040 0000 1234 5678 9012 3',
+	bankAccountHolder: 'AMANTENTE SOFT - COMERCIO & SERVIÇOS, LDA',
+	bankSwift: 'BAIAOALU'
 };
 
 export const DEFAULT_TEAM: TeamMember[] = [
