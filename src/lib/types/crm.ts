@@ -55,7 +55,90 @@ export interface ClientLead {
 	decisionMaker?: string;
 	decisionMakerRole?: string;
 	email?: string;
+
+	// Módulos Multi-Negócio & Serviços
+	targetBusinessLines?: BusinessLine[];
+	subscriptions?: SaaSSubscription[];
+	projects?: ClientProject[];
+	supportContracts?: SupportContract[];
 }
+
+export type BusinessLine = 'saas' | 'custom_dev' | 'tech_support' | 'consulting';
+
+export type BillingCycle = 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'lifetime';
+
+export type SubscriptionStatus = 'active' | 'trial' | 'expiring_soon' | 'expired' | 'canceled' | 'suspended';
+
+export interface SaaSSubscription {
+	id: string;
+	productName: string; // Ex: "Fact Flexi", "Amasoft CRM", "ERP Amasoft"
+	productId?: string;
+	planName: string; // Ex: "Plano Starter", "Plano Profissional", "Empresa (5 utilizadores)"
+	billingCycle: BillingCycle;
+	priceKz: number; // Valor da subscrição em Kwanzas (AOA)
+	status: SubscriptionStatus;
+	startDate: string; // YYYY-MM-DD
+	renewalDate: string; // YYYY-MM-DD
+	instanceUrl?: string; // Ex: "app.factflexi.ao/empresa"
+	licenseKey?: string; // Chave de ativação ou licença
+	notes?: string;
+	createdAt: string;
+	updatedAt?: string;
+}
+
+export type ProjectType = 'website' | 'mobile_app' | 'custom_system' | 'ecommerce' | 'landing_page' | 'portal' | 'other';
+
+export type ProjectStage = 'briefing' | 'design_ui' | 'development' | 'testing' | 'completed' | 'on_hold';
+
+export interface ClientProject {
+	id: string;
+	name: string; // Ex: "Website Institucional & Catálogo"
+	type: ProjectType;
+	stage: ProjectStage;
+	progress: number; // 0 - 100 (%)
+	estimatedValue: number; // Em Kwanzas (AOA)
+	startDate?: string;
+	targetDeliveryDate?: string;
+	demoUrl?: string;
+	repositoryUrl?: string;
+	notes?: string;
+	createdAt: string;
+	updatedAt?: string;
+}
+
+export type SupportContractType = 'technical_support' | 'fiscal_consulting' | 'sysadmin_infra' | 'custom_retainer';
+
+export type SupportContractStatus = 'active' | 'paused' | 'expired' | 'canceled';
+
+export interface SupportContract {
+	id: string;
+	title: string; // Ex: "Assistência Técnica de TI & Redes"
+	type: SupportContractType;
+	status: SupportContractStatus;
+	monthlyHours?: number; // Ex: 20h/mês
+	priceKz: number; // Valor da avença em Kwanzas
+	billingCycle: BillingCycle;
+	startDate: string;
+	endDate?: string;
+	slaDescription?: string;
+	notes?: string;
+	createdAt: string;
+	updatedAt?: string;
+}
+
+export interface SaaSProductCatalogItem {
+	id: string;
+	name: string;
+	category: string;
+	description: string;
+	defaultPlans: {
+		name: string;
+		priceMonthlyKz: number;
+		priceAnnualKz: number;
+		features?: string[];
+	}[];
+}
+
 
 export interface CRMFilterOptions {
 	search: string;

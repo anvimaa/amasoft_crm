@@ -88,3 +88,53 @@ export const DEFAULT_TEMPLATES: ApproachTemplate[] = [
 ];
 
 export const DEFAULT_PROPOSALS: CommercialProposal[] = [];
+
+export const DEFAULT_SAAS_CATALOG = [
+	{
+		id: 'prod-fact-flexi',
+		name: 'Fact Flexi',
+		category: 'Faturação Eletrónica & Gestão Comercial',
+		description: 'Software de faturação certificado pela AGT com módulos de vendas, clientes, stock e tesouraria.',
+		defaultPlans: [
+			{
+				name: 'Plano Básico (Mono-Posto)',
+				priceMonthlyKz: 15000,
+				priceAnnualKz: 150000,
+				features: ['1 Posto de Trabalho', 'Faturação Ilimitada', 'Certificação AGT', 'Suporte Standard']
+			},
+			{
+				name: 'Plano Profissional (Multi-Caixa)',
+				priceMonthlyKz: 35000,
+				priceAnnualKz: 350000,
+				features: ['Até 3 Postos', 'Gestão de Stocks', 'Faturação e Recibos', 'Relatórios Avançados', 'Suporte Prioritário']
+			},
+			{
+				name: 'Plano Corporativo / Enterprise',
+				priceMonthlyKz: 75000,
+				priceAnnualKz: 750000,
+				features: ['Postos Ilimitados', 'Multi-Armazém', 'Gestão Financeira & Tesouraria', 'Acesso Multi-Utilizador', 'Suporte 24/7']
+			}
+		]
+	},
+	{
+		id: 'prod-amasoft-crm',
+		name: 'Amasoft CRM',
+		category: 'Gestão Comercial & Pipeline de Vendas',
+		description: 'CRM B2B com funil de vendas, gerador de orçamentos, integração WhatsApp e catálogo de soluções.',
+		defaultPlans: [
+			{
+				name: 'Plano Comercial (Até 3 Usuários)',
+				priceMonthlyKz: 25000,
+				priceAnnualKz: 250000,
+				features: ['Até 3 Vendedores', 'Pipeline Visual', 'Exportação PDF Propostas', 'Integração WhatsApp']
+			},
+			{
+				name: 'Plano Empresa (Até 10 Usuários)',
+				priceMonthlyKz: 55000,
+				priceAnnualKz: 550000,
+				features: ['Até 10 Vendedores', 'Múltiplas Linhas de Negócio', 'Gestão de Licenças & Subscrições', 'Métricas MRR/ARR']
+			}
+		]
+	}
+];
+
