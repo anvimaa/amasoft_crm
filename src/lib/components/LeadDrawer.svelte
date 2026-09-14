@@ -6,15 +6,29 @@
 	import Icon from './Icon.svelte';
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
-	import type { ClientLead, CommercialProposal, InteractionOutcome, LeadPriority, LeadStatus, NoteType } from '../types/crm';
+	import type {
+		ClientLead,
+		CommercialProposal,
+		InteractionOutcome,
+		LeadPriority,
+		LeadStatus,
+		NoteType,
+		SaaSSubscription,
+		BillingCycle,
+		SubscriptionStatus,
+		ClientProject,
+		SupportContract
+	} from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
 	import { formatKz } from '../utils/format';
 	import { generateProposalPDF } from '../utils/pdf-generator';
+	import { DEFAULT_SAAS_CATALOG } from '../data/defaults';
 
 	import { toast } from '../stores/toast.svelte';
 
 	let lead = $derived(crmStore.selectedLead);
 	let leadProposals = $derived.by(() => (lead ? proposalsStore.getProposalsByLead(lead.id) : []));
+	let leadSubscriptions = $derived.by(() => (lead?.subscriptions || []));
 	
 	let selectedTemplateId = $state<string>('');
 	let customMessage = $state<string>('');
@@ -25,7 +39,23 @@
 	let noteChannelFilter = $state<'all' | NoteType>('all');
 	let isConfirmingDelete = $state<boolean>(false);
 
-	let activeTab = $state<'whatsapp' | 'proposals' | 'notes' | 'details'>('whatsapp');
+	let activeTab = $state<'whatsapp' | 'saas' | 'proposals' | 'projects' | 'contracts' | 'notes' | 'details'>('whatsapp');
+
+	// Subscription management state
+	let isSubModalOpen = $state<boolean>(false);
+	let editingSubId = $state<string | null>(null);
+	let deletingSub = $state<SaaSSubscription | null>(null);
+
+	let formSubProduct = $state<string>('Fact Flexi');
+	let formSubPlan = $state<string>('Plano Profissional (Multi-Caixa)');
+	let formSubCycle = $state<BillingCycle>('annual');
+	let formSubPrice = $state<number>(350000);
+	let formSubStatus = $state<SubscriptionStatus>('active');
+	let formSubStart = $state<string>(new Date().toISOString().slice(0, 10));
+	let formSubRenewal = $state<string>('');
+	let formSubUrl = $state<string>('');
+	let formSubKey = $state<string>('');
+	let formSubNotes = $state<string>('');
 
 	// Contact & follow-up drafts (synced from selected lead)
 	let decisionMaker = $state<string>('');
@@ -197,6 +227,172 @@
 			console.error('Erro ao gerar PDF:', e);
 			toast.error('Erro no PDF', 'Falha ao gerar o ficheiro PDF.');
 		}
+	}
+
+	function calculateRenewalDate(startDate: string, cycle: BillingCycle): string {
+		if (!startDate) return '';
+		const d = new Date(startDate);
+		if (isNaN(d.getTime())) return '';
+		if (cycle === 'monthly') d.setMonth(d.getMonth() + 1);
+		else if (cycle === 'quarterly') d.setMonth(d.getMonth() + 3);
+		else if (cycle === 'semiannual') d.setMonth(d.getMonth() + 6);
+		else if (cycle === 'annual') d.setFullYear(d.getFullYear() + 1);
+		else if (cycle === 'lifetime') d.setFullYear(d.getFullYear() + 99);
+		return d.toISOString().slice(0, 10);
+	}
+
+	function handleSelectCatalogProduct(prodId: string) {
+		const p = DEFAULT_SAAS_CATALOG.find((x) => x.id === prodId);
+		if (p) {
+			formSubProduct = p.name;
+			const defaultPlan = p.defaultPlans[0];
+			if (defaultPlan) {
+				formSubPlan = defaultPlan.name;
+				formSubPrice = formSubCycle === 'annual' ? defaultPlan.priceAnnualKz : defaultPlan.priceMonthlyKz;
+			}
+			formSubRenewal = calculateRenewalDate(formSubStart, formSubCycle);
+		}
+	}
+
+	function handleCycleChange(newCycle: BillingCycle) {
+		formSubCycle = newCycle;
+		formSubRenewal = calculateRenewalDate(formSubStart, newCycle);
+		const cat = DEFAULT_SAAS_CATALOG.find((x) => x.name.toLowerCase() === formSubProduct.toLowerCase());
+		if (cat) {
+			const pl = cat.defaultPlans.find((x) => x.name.toLowerCase() === formSubPlan.toLowerCase());
+			if (pl) {
+				formSubPrice = newCycle === 'annual' ? pl.priceAnnualKz : pl.priceMonthlyKz;
+			}
+		}
+	}
+
+	function openAddSubscription() {
+		editingSubId = null;
+		formSubProduct = 'Fact Flexi';
+		formSubPlan = 'Plano Profissional (Multi-Caixa)';
+		formSubCycle = 'annual';
+		formSubPrice = 350000;
+		formSubStatus = 'active';
+		formSubStart = new Date().toISOString().slice(0, 10);
+		formSubRenewal = calculateRenewalDate(formSubStart, 'annual');
+		formSubUrl = '';
+		formSubKey = `FF-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${new Date().getFullYear()}`;
+		formSubNotes = '';
+		isSubModalOpen = true;
+	}
+
+	function openEditSubscription(sub: SaaSSubscription) {
+		editingSubId = sub.id;
+		formSubProduct = sub.productName;
+		formSubPlan = sub.planName;
+		formSubCycle = sub.billingCycle;
+		formSubPrice = sub.priceKz;
+		formSubStatus = sub.status;
+		formSubStart = sub.startDate;
+		formSubRenewal = sub.renewalDate;
+		formSubUrl = sub.instanceUrl || '';
+		formSubKey = sub.licenseKey || '';
+		formSubNotes = sub.notes || '';
+		isSubModalOpen = true;
+	}
+
+	function handleSaveSubscription() {
+		if (!lead) return;
+		if (!formSubProduct.trim() || !formSubPlan.trim()) {
+			toast.error('Campos Obrigatórios', 'Indique o nome do software e do plano.');
+			return;
+		}
+
+		if (editingSubId) {
+			crmStore.updateSubscription(lead.id, editingSubId, {
+				productName: formSubProduct.trim(),
+				planName: formSubPlan.trim(),
+				billingCycle: formSubCycle,
+				priceKz: Number(formSubPrice) || 0,
+				status: formSubStatus,
+				startDate: formSubStart,
+				renewalDate: formSubRenewal || calculateRenewalDate(formSubStart, formSubCycle),
+				instanceUrl: formSubUrl.trim() || undefined,
+				licenseKey: formSubKey.trim() || undefined,
+				notes: formSubNotes.trim() || undefined
+			});
+			toast.success('Subscrição Atualizada', `Licença de "${formSubProduct}" atualizada.`);
+		} else {
+			crmStore.addSubscription(lead.id, {
+				productName: formSubProduct.trim(),
+				planName: formSubPlan.trim(),
+				billingCycle: formSubCycle,
+				priceKz: Number(formSubPrice) || 0,
+				status: formSubStatus,
+				startDate: formSubStart,
+				renewalDate: formSubRenewal || calculateRenewalDate(formSubStart, formSubCycle),
+				instanceUrl: formSubUrl.trim() || undefined,
+				licenseKey: formSubKey.trim() || undefined,
+				notes: formSubNotes.trim() || undefined
+			});
+			toast.success('Subscrição Registada', `Licença de "${formSubProduct}" associada à empresa.`);
+		}
+		isSubModalOpen = false;
+	}
+
+	function confirmDeleteSub() {
+		if (!lead || !deletingSub) return;
+		crmStore.deleteSubscription(lead.id, deletingSub.id);
+		toast.info('Subscrição Removida', `A licença de "${deletingSub.productName}" foi eliminada.`);
+		deletingSub = null;
+	}
+
+	function sendSubscriptionRenewalNotice(sub: SaaSSubscription) {
+		if (!lead) return;
+		if (!lead.phone) {
+			toast.error('Sem Telefone', 'O cliente não possui telefone registado para envio WhatsApp.');
+			return;
+		}
+
+		const comp = companyStore.company;
+		const cycleLabels: Record<BillingCycle, string> = {
+			monthly: 'Mensal',
+			quarterly: 'Trimestral',
+			semiannual: 'Semestral',
+			annual: 'Anual',
+			lifetime: 'Vitalício'
+		};
+
+		const bankSection = comp.bankIban
+			? `\n*Coordenadas Bancárias para Pagamento:*\n• *Banco:* ${comp.bankName || 'BAI'}\n• *IBAN:* ${comp.bankIban}\n• *Titular:* ${comp.bankAccountHolder || comp.name}`
+			: '';
+
+		const message = `*Aviso de Renovação de Licença — ${comp.name}*\n\nEstimada equipa da *${lead.title}*,\n\nEsperamos que se encontrem bem.\n\nInformamos que a subscrição do vosso software *${sub.productName}* (*${sub.planName}*) tem renovação agendada para o dia *${sub.renewalDate}*.\n\n*Detalhes da Subscrição:*\n• *Software:* ${sub.productName}\n• *Plano:* ${sub.planName}\n• *Ciclo:* ${cycleLabels[sub.billingCycle]}\n• *Valor de Renovação:* *${formatKz(sub.priceKz)}*${sub.licenseKey ? `\n• *Ref/Chave:* \`${sub.licenseKey}\`` : ''}${bankSection}\n\nApós o envio do comprovativo de pagamento, procederemos à extensão imediata da licença no sistema.\n\nCom os melhores cumprimentos,\n*${comp.name}*\n${comp.phone || ''}`;
+
+		const link = generateWhatsAppLink(lead.phone, message);
+		if (link) {
+			window.open(link, '_blank');
+			toast.success('WhatsApp de Renovação', 'Mensagem de renovação gerada e aberta no WhatsApp.');
+		}
+	}
+
+	function getSubscriptionDaysInfo(renewalDateStr: string): { days: number; label: string; isUrgent: boolean; isExpired: boolean } {
+		if (!renewalDateStr) return { days: 0, label: 'Data indefinida', isUrgent: false, isExpired: false };
+		const target = new Date(renewalDateStr);
+		if (isNaN(target.getTime())) return { days: 0, label: renewalDateStr, isUrgent: false, isExpired: false };
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const t = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+		const diffDays = Math.round((t.getTime() - today.getTime()) / 86400000);
+
+		if (diffDays < 0) {
+			return { days: diffDays, label: `Expirou há ${Math.abs(diffDays)} dias`, isUrgent: true, isExpired: true };
+		}
+		if (diffDays === 0) {
+			return { days: 0, label: 'Expira hoje!', isUrgent: true, isExpired: false };
+		}
+		if (diffDays <= 15) {
+			return { days: diffDays, label: `Expira em ${diffDays} dias`, isUrgent: true, isExpired: false };
+		}
+		if (diffDays <= 30) {
+			return { days: diffDays, label: `Expira em ${diffDays} dias`, isUrgent: false, isExpired: false };
+		}
+		return { days: diffDays, label: `Renovação: ${t.toLocaleDateString('pt-AO')}`, isUrgent: false, isExpired: false };
 	}
 
 	function isValidEmail(v: string): boolean {
@@ -395,15 +591,28 @@
 			<button
 				type="button"
 				onclick={() => activeTab = 'whatsapp'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'whatsapp' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'whatsapp' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="whatsapp" class="w-3.5 h-3.5 text-emerald-400" />
-				Abordagem Comercial
+				Abordagem
+			</button>
+			<button
+				type="button"
+				onclick={() => activeTab = 'saas'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'saas' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="tag" class="w-3.5 h-3.5 text-sky-400" />
+				SaaS & Licenças
+				{#if leadSubscriptions.length > 0}
+					<span class="rounded-full bg-sky-950 border border-sky-800/80 px-1.5 py-0.2 text-[10px] font-mono text-sky-300 font-bold">
+						{leadSubscriptions.length}
+					</span>
+				{/if}
 			</button>
 			<button
 				type="button"
 				onclick={() => activeTab = 'proposals'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'proposals' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'proposals' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="file-text" class="w-3.5 h-3.5 text-zinc-400" />
 				Propostas ({leadProposals.length})
@@ -411,15 +620,15 @@
 			<button
 				type="button"
 				onclick={() => activeTab = 'notes'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'notes' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'notes' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="edit" class="w-3.5 h-3.5 text-zinc-400" />
-				Registo de Atividades ({lead.notes.length})
+				Atividades ({lead.notes.length})
 			</button>
 			<button
 				type="button"
 				onclick={() => activeTab = 'details'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'details' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'details' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="building" class="w-3.5 h-3.5 text-zinc-400" />
 				Dados Cadastrais
@@ -553,6 +762,171 @@
 									<span>Sem WhatsApp</span>
 								</button>
 							</div>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB: SAAS & LICENSES -->
+			{:else if activeTab === 'saas'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<span class="text-xs font-semibold text-zinc-200">
+								Subscrições & Licenças de Software ({leadSubscriptions.length})
+							</span>
+							<p class="text-[11px] text-zinc-400 mt-0.5">
+								Controlo de licenças Fact Flexi, Amasoft CRM e produtos SaaS por subscrição.
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={openAddSubscription}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm shrink-0"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Registar Licença</span>
+						</button>
+					</div>
+
+					{#if leadSubscriptions.length > 0}
+						<div class="space-y-3">
+							{#each leadSubscriptions as sub (sub.id)}
+								{@const daysInfo = getSubscriptionDaysInfo(sub.renewalDate)}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3 hover:border-zinc-700 transition-colors">
+									<!-- Top Bar: Product & Plan + Status Badge -->
+									<div class="flex items-start justify-between gap-3">
+										<div class="space-y-1">
+											<div class="flex items-center gap-2">
+												<h4 class="text-sm font-bold text-white">{sub.productName}</h4>
+												{#if sub.status === 'active'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-800/80">
+														Ativa
+													</span>
+												{:else if sub.status === 'expiring_soon'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/80">
+														A Expirar
+													</span>
+												{:else if sub.status === 'expired'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-rose-950/70 text-rose-300 border border-rose-800/80">
+														Expirada
+													</span>
+												{:else if sub.status === 'trial'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-sky-950/70 text-sky-300 border border-sky-800/80">
+														Em Teste (Trial)
+													</span>
+												{:else}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
+														Cancelada
+													</span>
+												{/if}
+											</div>
+											<p class="text-xs text-zinc-300 font-medium">
+												{sub.planName}
+											</p>
+										</div>
+
+										<div class="text-right font-mono shrink-0">
+											<span class="text-sm font-bold text-emerald-400">{formatKz(sub.priceKz)}</span>
+											<p class="text-[10px] text-zinc-500 uppercase tracking-wider">/ {sub.billingCycle}</p>
+										</div>
+									</div>
+
+									<!-- Key Dates & License Info -->
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs rounded-lg bg-zinc-950/60 p-2.5 border border-zinc-800/60">
+										<div class="space-y-0.5">
+											<span class="text-[10px] text-zinc-500">Início da Vigência:</span>
+											<p class="font-mono text-zinc-300">{sub.startDate || '—'}</p>
+										</div>
+										<div class="space-y-0.5">
+											<span class="text-[10px] text-zinc-500">Data de Renovação:</span>
+											<p class="font-mono {daysInfo.isExpired ? 'text-rose-400 font-bold' : daysInfo.isUrgent ? 'text-amber-400 font-bold' : 'text-zinc-200'}">
+												{sub.renewalDate || '—'} 
+												<span class="text-[10px] font-sans font-normal opacity-80">({daysInfo.label})</span>
+											</p>
+										</div>
+
+										{#if sub.licenseKey}
+											<div class="col-span-1 sm:col-span-2 space-y-0.5 pt-1 border-t border-zinc-800/40">
+												<span class="text-[10px] text-zinc-500">Chave / Referência:</span>
+												<code class="block font-mono text-[11px] text-zinc-300 bg-zinc-900 px-2 py-1 rounded border border-zinc-800 select-all">
+													{sub.licenseKey}
+												</code>
+											</div>
+										{/if}
+
+										{#if sub.instanceUrl}
+											<div class="col-span-1 sm:col-span-2 space-y-0.5">
+												<span class="text-[10px] text-zinc-500">Instância / URL de Acesso:</span>
+												<a
+													href={sub.instanceUrl.startsWith('http') ? sub.instanceUrl : `https://${sub.instanceUrl}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="block text-[11px] text-sky-400 hover:underline truncate"
+												>
+													{sub.instanceUrl}
+												</a>
+											</div>
+										{/if}
+
+										{#if sub.notes}
+											<div class="col-span-1 sm:col-span-2 space-y-0.5 text-[11px] text-zinc-400 pt-1 border-t border-zinc-800/40">
+												<span>Obs: {sub.notes}</span>
+											</div>
+										{/if}
+									</div>
+
+									<!-- Action Buttons Footer -->
+									<div class="flex items-center justify-between pt-2 border-t border-zinc-800/80 text-xs">
+										<button
+											type="button"
+											onclick={() => sendSubscriptionRenewalNotice(sub)}
+											class="flex items-center gap-1.5 rounded border border-emerald-800/60 bg-emerald-950/40 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/60 transition-colors cursor-pointer"
+											title="Enviar mensagem de cobrança/renovação de licença via WhatsApp"
+										>
+											<Icon name="whatsapp" class="w-3.5 h-3.5" />
+											<span>Aviso de Renovação</span>
+										</button>
+
+										<div class="flex items-center gap-1">
+											<button
+												type="button"
+												onclick={() => openEditSubscription(sub)}
+												class="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+												title="Editar licença"
+											>
+												<Icon name="edit" class="w-3.5 h-3.5" />
+											</button>
+											<button
+												type="button"
+												onclick={() => deletingSub = sub}
+												class="rounded p-1 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-300 transition-colors cursor-pointer"
+												title="Remover licença"
+											>
+												<Icon name="trash" class="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="tag" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhuma subscrição registada</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Associe licenças ativas do Fact Flexi, Amasoft CRM ou outros produtos SaaS a esta empresa.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={openAddSubscription}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Registar Primeira Licença
+							</button>
 						</div>
 					{/if}
 				</div>
@@ -1178,3 +1552,265 @@
 		</div>
 	</aside>
 {/if}
+
+<!-- MODAL: SUBSCRIPTION EDITOR -->
+{#if isSubModalOpen}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Dialog -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-sky-950/60 p-2 text-sky-400 border border-sky-800/60">
+						<Icon name="tag" class="w-4 h-4" />
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-white">
+							{editingSubId ? 'Editar Subscrição SaaS' : 'Registar Nova Licença SaaS'}
+						</h3>
+						<p class="text-[11px] text-zinc-400">
+							{lead?.title}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => isSubModalOpen = false}
+					class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
+
+			<!-- Scrollable Form Body -->
+			<div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+				<!-- Quick Catalog Selector (only for new) -->
+				{#if !editingSubId}
+					<div class="space-y-1.5">
+						<span class="block text-[11px] font-medium text-zinc-400">Selecionar do Catálogo:</span>
+						<div class="grid grid-cols-2 gap-2">
+							{#each DEFAULT_SAAS_CATALOG as catItem}
+								<button
+									type="button"
+									onclick={() => handleSelectCatalogProduct(catItem.id)}
+									class="text-left rounded-lg border p-2.5 transition-colors cursor-pointer {formSubProduct === catItem.name ? 'border-sky-500 bg-sky-950/30 text-white' : 'border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-900'}"
+								>
+									<span class="font-semibold block text-xs">{catItem.name}</span>
+									<span class="text-[10px] text-zinc-400 line-clamp-1">{catItem.category}</span>
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Product & Plan -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="sub-product" class="block text-[11px] font-medium text-zinc-300">Software / Produto *</label>
+						<input
+							id="sub-product"
+							type="text"
+							bind:value={formSubProduct}
+							placeholder="Ex: Fact Flexi, Amasoft CRM..."
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+					<div class="space-y-1">
+						<label for="sub-plan" class="block text-[11px] font-medium text-zinc-300">Plano / Versão *</label>
+						<input
+							id="sub-plan"
+							type="text"
+							bind:value={formSubPlan}
+							placeholder="Ex: Plano Profissional, Multi-Caixa..."
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Cycle & Price -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="sub-cycle" class="block text-[11px] font-medium text-zinc-300">Ciclo de Faturação *</label>
+						<select
+							id="sub-cycle"
+							value={formSubCycle}
+							onchange={(e) => handleCycleChange((e.target as HTMLSelectElement).value as BillingCycle)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="monthly">Mensal</option>
+							<option value="quarterly">Trimestral (3 meses)</option>
+							<option value="semiannual">Semestral (6 meses)</option>
+							<option value="annual">Anual (12 meses)</option>
+							<option value="lifetime">Vitalício</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-price" class="block text-[11px] font-medium text-zinc-300">Valor Recorrente (Kz) *</label>
+						<input
+							id="sub-price"
+							type="number"
+							bind:value={formSubPrice}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-emerald-400 font-mono font-bold focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Status & Start Date -->
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<div class="space-y-1">
+						<label for="sub-status" class="block text-[11px] font-medium text-zinc-300">Estado da Licença</label>
+						<select
+							id="sub-status"
+							bind:value={formSubStatus}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="active">Ativa</option>
+							<option value="trial">Em Teste (Trial)</option>
+							<option value="expiring_soon">A Expirar</option>
+							<option value="expired">Expirada</option>
+							<option value="canceled">Cancelada</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-start" class="block text-[11px] font-medium text-zinc-300">Data de Início</label>
+						<input
+							id="sub-start"
+							type="date"
+							bind:value={formSubStart}
+							onchange={() => formSubRenewal = calculateRenewalDate(formSubStart, formSubCycle)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-renewal" class="block text-[11px] font-medium text-zinc-300">Próxima Renovação</label>
+						<input
+							id="sub-renewal"
+							type="date"
+							bind:value={formSubRenewal}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- License Key & URL -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="sub-key" class="block text-[11px] font-medium text-zinc-300">Chave de Licença / Código</label>
+						<input
+							id="sub-key"
+							type="text"
+							bind:value={formSubKey}
+							placeholder="Ex: FF-9821A-2026"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 font-mono placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-url" class="block text-[11px] font-medium text-zinc-300">Instância / URL de Acesso</label>
+						<input
+							id="sub-url"
+							type="text"
+							bind:value={formSubUrl}
+							placeholder="Ex: app.factflexi.ao/empresa"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div class="space-y-1">
+					<label for="sub-notes" class="block text-[11px] font-medium text-zinc-300">Observações Internas</label>
+					<textarea
+						id="sub-notes"
+						bind:value={formSubNotes}
+						rows="2"
+						placeholder="Ex: Licença inclui módulo de faturação e gestão de stocks em 2 armazéns..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => isSubModalOpen = false}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={handleSaveSubscription}
+					class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+				>
+					<Icon name="check" class="w-3.5 h-3.5" />
+					<span>{editingSubId ? 'Salvar Alterações' : 'Confirmar Subscrição'}</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: DELETE SUBSCRIPTION CONFIRMATION -->
+{#if deletingSub}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Licença de Software?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação removerá o registo da licença <strong class="text-zinc-200">{deletingSub.productName} ({deletingSub.planName})</strong> associada a esta empresa.
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-2.5 text-xs font-mono space-y-1">
+						<div class="flex justify-between text-zinc-300">
+							<span>Valor:</span>
+							<span class="text-emerald-400 font-bold">{formatKz(deletingSub.priceKz)}</span>
+						</div>
+						<div class="flex justify-between text-zinc-400 text-[11px]">
+							<span>Renovação:</span>
+							<span>{deletingSub.renewalDate}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingSub = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteSub}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Licença</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
