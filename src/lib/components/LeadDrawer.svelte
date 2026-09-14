@@ -17,6 +17,8 @@
 		BillingCycle,
 		SubscriptionStatus,
 		ClientProject,
+		ProjectType,
+		ProjectStage,
 		SupportContract
 	} from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
@@ -29,6 +31,8 @@
 	let lead = $derived(crmStore.selectedLead);
 	let leadProposals = $derived.by(() => (lead ? proposalsStore.getProposalsByLead(lead.id) : []));
 	let leadSubscriptions = $derived.by(() => (lead?.subscriptions || []));
+	let leadProjects = $derived.by(() => (lead?.projects || []));
+	let leadContracts = $derived.by(() => (lead?.supportContracts || []));
 	
 	let selectedTemplateId = $state<string>('');
 	let customMessage = $state<string>('');
@@ -39,7 +43,8 @@
 	let noteChannelFilter = $state<'all' | NoteType>('all');
 	let isConfirmingDelete = $state<boolean>(false);
 
-	let activeTab = $state<'whatsapp' | 'saas' | 'proposals' | 'projects' | 'contracts' | 'notes' | 'details'>('whatsapp');
+	let activeTab = $state<'whatsapp' | 'saas' | 'projects' | 'proposals' | 'contracts' | 'notes' | 'details'>('whatsapp');
+	let isWideMode = $state<boolean>(false);
 
 	// Subscription management state
 	let isSubModalOpen = $state<boolean>(false);
@@ -56,6 +61,22 @@
 	let formSubUrl = $state<string>('');
 	let formSubKey = $state<string>('');
 	let formSubNotes = $state<string>('');
+
+	// Projects management state
+	let isProjectModalOpen = $state<boolean>(false);
+	let editingProjectId = $state<string | null>(null);
+	let deletingProject = $state<ClientProject | null>(null);
+
+	let formProjName = $state<string>('');
+	let formProjType = $state<ProjectType>('website');
+	let formProjStage = $state<ProjectStage>('development');
+	let formProjProgress = $state<number>(50);
+	let formProjValue = $state<number>(0);
+	let formProjStartDate = $state<string>(new Date().toISOString().slice(0, 10));
+	let formProjDeliveryDate = $state<string>('');
+	let formProjDemoUrl = $state<string>('');
+	let formProjRepoUrl = $state<string>('');
+	let formProjNotes = $state<string>('');
 
 	// Contact & follow-up drafts (synced from selected lead)
 	let decisionMaker = $state<string>('');
@@ -395,6 +416,123 @@
 		return { days: diffDays, label: `Renovação: ${t.toLocaleDateString('pt-AO')}`, isUrgent: false, isExpired: false };
 	}
 
+	const PROJECT_TYPE_LABELS: Record<ProjectType, { label: string; icon: string }> = {
+		website: { label: 'Website Institucional', icon: 'globe' },
+		mobile_app: { label: 'Aplicação Móvel (App)', icon: 'phone' },
+		custom_system: { label: 'Sistema / Software por Medida', icon: 'building' },
+		ecommerce: { label: 'Loja Virtual / E-commerce', icon: 'money' },
+		landing_page: { label: 'Landing Page Comercial', icon: 'sparkles' },
+		portal: { label: 'Portal do Cliente / Web App', icon: 'globe' },
+		other: { label: 'Outro Projeto Digital', icon: 'file' }
+	};
+
+	const PROJECT_STAGE_CONFIG: Record<ProjectStage, { label: string; defaultProgress: number; bg: string; text: string; border: string }> = {
+		briefing: { label: '1. Briefing & Requisitos', defaultProgress: 15, bg: 'bg-zinc-800', text: 'text-zinc-300', border: 'border-zinc-700' },
+		design_ui: { label: '2. Design UI & Protótipo', defaultProgress: 35, bg: 'bg-indigo-950/60', text: 'text-indigo-300', border: 'border-indigo-800' },
+		development: { label: '3. Desenvolvimento & Código', defaultProgress: 65, bg: 'bg-sky-950/60', text: 'text-sky-300', border: 'border-sky-800' },
+		testing: { label: '4. Testes & Homologação', defaultProgress: 85, bg: 'bg-amber-950/60', text: 'text-amber-300', border: 'border-amber-800' },
+		completed: { label: '5. Publicado / Concluído', defaultProgress: 100, bg: 'bg-emerald-950/60', text: 'text-emerald-300', border: 'border-emerald-800' },
+		on_hold: { label: 'Pausa / Aguarda Cliente', defaultProgress: 50, bg: 'bg-rose-950/60', text: 'text-rose-300', border: 'border-rose-800' }
+	};
+
+	const PROJECT_STAGES_LIST: ProjectStage[] = ['briefing', 'design_ui', 'development', 'testing', 'completed'];
+
+	function openAddProject() {
+		editingProjectId = null;
+		formProjName = lead?.website ? 'Reformulação de Website Institucional' : 'Desenvolvimento de Website Corporativo';
+		formProjType = 'website';
+		formProjStage = 'briefing';
+		formProjProgress = 15;
+		formProjValue = 450000;
+		formProjStartDate = new Date().toISOString().slice(0, 10);
+		
+		const deliveryDate = new Date();
+		deliveryDate.setDate(deliveryDate.getDate() + 30);
+		formProjDeliveryDate = deliveryDate.toISOString().slice(0, 10);
+		formProjDemoUrl = '';
+		formProjRepoUrl = '';
+		formProjNotes = '';
+		isProjectModalOpen = true;
+	}
+
+	function openEditProject(proj: ClientProject) {
+		editingProjectId = proj.id;
+		formProjName = proj.name;
+		formProjType = proj.type;
+		formProjStage = proj.stage;
+		formProjProgress = proj.progress;
+		formProjValue = proj.estimatedValue;
+		formProjStartDate = proj.startDate || '';
+		formProjDeliveryDate = proj.targetDeliveryDate || '';
+		formProjDemoUrl = proj.demoUrl || '';
+		formProjRepoUrl = proj.repositoryUrl || '';
+		formProjNotes = proj.notes || '';
+		isProjectModalOpen = true;
+	}
+
+	function handleProjectStageSelect(newStage: ProjectStage) {
+		formProjStage = newStage;
+		if (PROJECT_STAGE_CONFIG[newStage]) {
+			formProjProgress = PROJECT_STAGE_CONFIG[newStage].defaultProgress;
+		}
+	}
+
+	function handleQuickAdvanceProjectStage(proj: ClientProject, nextStage: ProjectStage) {
+		if (!lead) return;
+		const nextProgress = PROJECT_STAGE_CONFIG[nextStage]?.defaultProgress ?? proj.progress;
+		crmStore.updateProject(lead.id, proj.id, {
+			stage: nextStage,
+			progress: nextProgress
+		});
+		toast.success('Etapa Atualizada', `Projeto "${proj.name}" avançou para "${PROJECT_STAGE_CONFIG[nextStage].label}".`);
+	}
+
+	function handleSaveProject() {
+		if (!lead) return;
+		if (!formProjName.trim()) {
+			toast.error('Campo Obrigatório', 'Indique o nome/escopo do projeto.');
+			return;
+		}
+
+		if (editingProjectId) {
+			crmStore.updateProject(lead.id, editingProjectId, {
+				name: formProjName.trim(),
+				type: formProjType,
+				stage: formProjStage,
+				progress: Math.min(100, Math.max(0, Number(formProjProgress) || 0)),
+				estimatedValue: Number(formProjValue) || 0,
+				startDate: formProjStartDate || undefined,
+				targetDeliveryDate: formProjDeliveryDate || undefined,
+				demoUrl: formProjDemoUrl.trim() || undefined,
+				repositoryUrl: formProjRepoUrl.trim() || undefined,
+				notes: formProjNotes.trim() || undefined
+			});
+			toast.success('Projeto Atualizado', `Projeto "${formProjName}" guardado.`);
+		} else {
+			crmStore.addProject(lead.id, {
+				name: formProjName.trim(),
+				type: formProjType,
+				stage: formProjStage,
+				progress: Math.min(100, Math.max(0, Number(formProjProgress) || 0)),
+				estimatedValue: Number(formProjValue) || 0,
+				startDate: formProjStartDate || undefined,
+				targetDeliveryDate: formProjDeliveryDate || undefined,
+				demoUrl: formProjDemoUrl.trim() || undefined,
+				repositoryUrl: formProjRepoUrl.trim() || undefined,
+				notes: formProjNotes.trim() || undefined
+			});
+			toast.success('Projeto Criado', `Projeto "${formProjName}" adicionado.`);
+		}
+		isProjectModalOpen = false;
+	}
+
+	function confirmDeleteProj() {
+		if (!lead || !deletingProject) return;
+		crmStore.deleteProject(lead.id, deletingProject.id);
+		toast.info('Projeto Removido', `O projeto "${deletingProject.name}" foi eliminado.`);
+		deletingProject = null;
+	}
+
 	function isValidEmail(v: string): boolean {
 		return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 	}
@@ -482,18 +620,18 @@
 		aria-label="Fechar painel"
 	></button>
 
-	<!-- Slide-over Drawer Panel -->
+	<!-- Slide-over Drawer Panel (65-70% width by default, expandable to 90%) -->
 	<aside
-		class="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col bg-zinc-950 border-l border-zinc-800 shadow-2xl transition-transform overflow-hidden"
+		class="fixed inset-y-0 right-0 z-50 flex flex-col bg-zinc-950 border-l border-zinc-800 shadow-2xl transition-all duration-300 ease-in-out overflow-hidden {isWideMode ? 'w-full lg:w-[92vw] xl:w-[88vw]' : 'w-full sm:w-[80vw] md:w-[72vw] lg:w-[68vw] xl:w-[62vw] max-w-7xl'}"
 	>
 		<!-- Header -->
 		<div class="flex items-start justify-between border-b border-zinc-800 p-5 bg-zinc-900/60">
-			<div class="space-y-1.5 max-w-lg">
+			<div class="space-y-1.5 max-w-2xl">
 				<div class="flex items-center gap-2">
 					<PriorityBadge priority={lead.priority} size="sm" />
 					<StatusBadge status={lead.status} size="sm" />
 				</div>
-				<h2 class="text-base font-semibold text-zinc-100 leading-tight">{lead.title}</h2>
+				<h2 class="text-lg font-bold text-zinc-100 leading-tight">{lead.title}</h2>
 				<p class="text-xs text-zinc-400">{lead.categoryName} • {lead.city || 'Angola'}</p>
 			</div>
 
@@ -501,17 +639,28 @@
 				<button
 					type="button"
 					onclick={() => proposalsStore.openNewProposal(lead)}
-					class="flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white px-2.5 py-1 text-xs font-semibold text-zinc-950 transition-colors cursor-pointer shadow-sm"
+					class="flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-950 transition-colors cursor-pointer shadow-sm"
 					title="Emitir proposta comercial formal para esta empresa"
 				>
 					<Icon name="file-text" class="w-3.5 h-3.5" />
 					<span>Criar Proposta</span>
 				</button>
 
+				<!-- Toggle Width Button -->
+				<button
+					type="button"
+					onclick={() => isWideMode = !isWideMode}
+					class="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer border border-zinc-800"
+					title={isWideMode ? 'Restaurar largura normal (68%)' : 'Expandir para ecrã panorâmico (90%)'}
+				>
+					<Icon name={isWideMode ? 'minimize' : 'maximize'} class="w-3.5 h-3.5" />
+				</button>
+
 				<button
 					type="button"
 					onclick={() => crmStore.selectLead(null)}
 					class="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+					title="Fechar painel"
 				>
 					<Icon name="close" class="w-4 h-4" />
 				</button>
@@ -606,6 +755,19 @@
 				{#if leadSubscriptions.length > 0}
 					<span class="rounded-full bg-sky-950 border border-sky-800/80 px-1.5 py-0.2 text-[10px] font-mono text-sky-300 font-bold">
 						{leadSubscriptions.length}
+					</span>
+				{/if}
+			</button>
+			<button
+				type="button"
+				onclick={() => activeTab = 'projects'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'projects' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="globe" class="w-3.5 h-3.5 text-indigo-400" />
+				Projetos Web/App
+				{#if leadProjects.length > 0}
+					<span class="rounded-full bg-indigo-950 border border-indigo-800/80 px-1.5 py-0.2 text-[10px] font-mono text-indigo-300 font-bold">
+						{leadProjects.length}
 					</span>
 				{/if}
 			</button>
@@ -931,7 +1093,169 @@
 					{/if}
 				</div>
 
-			<!-- TAB 2: PROPOSALS -->
+			<!-- TAB: PROJECTS & CUSTOM DEV -->
+			{:else if activeTab === 'projects'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<span class="text-xs font-semibold text-zinc-200">
+								Projetos Web & Desenvolvimento por Medida ({leadProjects.length})
+							</span>
+							<p class="text-[11px] text-zinc-400 mt-0.5">
+								Acompanhamento de fases, prazos e entregas de Websites, Apps e Sistemas.
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={openAddProject}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm shrink-0"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Novo Projeto</span>
+						</button>
+					</div>
+
+					{#if leadProjects.length > 0}
+						<div class="space-y-3.5">
+							{#each leadProjects as proj (proj.id)}
+								{@const st = PROJECT_STAGE_CONFIG[proj.stage]}
+								{@const typeInfo = PROJECT_TYPE_LABELS[proj.type]}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3.5 hover:border-zinc-700 transition-colors">
+									<!-- Top Bar: Title & Status -->
+									<div class="flex items-start justify-between gap-3">
+										<div class="space-y-1">
+											<div class="flex flex-wrap items-center gap-2">
+												<h4 class="text-sm font-bold text-white">{proj.name}</h4>
+												<span class="rounded px-2 py-0.5 text-[10px] font-semibold {st.bg} {st.text} border {st.border}">
+													{st.label}
+												</span>
+												<span class="rounded bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-400 border border-zinc-700/60">
+													{typeInfo?.label || proj.type}
+												</span>
+											</div>
+											{#if proj.notes}
+												<p class="text-xs text-zinc-400 line-clamp-1">
+													{proj.notes}
+												</p>
+											{/if}
+										</div>
+
+										<div class="text-right font-mono shrink-0">
+											<span class="text-sm font-bold text-emerald-400">
+												{proj.estimatedValue ? formatKz(proj.estimatedValue) : 'Sob Orçamento'}
+											</span>
+											<p class="text-[10px] text-zinc-500 font-sans">Valor Contratado</p>
+										</div>
+									</div>
+
+									<!-- Interactive Stage Progress Tracker -->
+									<div class="space-y-2 rounded-lg bg-zinc-950/70 p-3 border border-zinc-800/70">
+										<div class="flex items-center justify-between text-xs">
+											<span class="text-[11px] font-medium text-zinc-400">Progresso do Desenvolvimento:</span>
+											<span class="font-mono font-bold text-zinc-200">{proj.progress}%</span>
+										</div>
+
+										<!-- Progress Bar -->
+										<div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+											<div
+												class="h-full transition-all duration-500 rounded-full {proj.stage === 'completed' ? 'bg-emerald-500' : proj.progress >= 70 ? 'bg-sky-500' : 'bg-indigo-500'}"
+												style="width: {proj.progress}%;"
+											></div>
+										</div>
+
+										<!-- Stage Steps Flow -->
+										<div class="grid grid-cols-5 gap-1 pt-1.5 text-center">
+											{#each PROJECT_STAGES_LIST as stepStage, idx}
+												{@const isCurrent = proj.stage === stepStage}
+												{@const isPassed = PROJECT_STAGES_LIST.indexOf(proj.stage) >= idx}
+												<button
+													type="button"
+													onclick={() => handleQuickAdvanceProjectStage(proj, stepStage)}
+													class="group/step p-1 rounded transition-colors cursor-pointer text-left sm:text-center {isCurrent ? 'bg-zinc-800/90 border border-zinc-700' : 'hover:bg-zinc-900/60'}"
+													title="Mudar etapa para {PROJECT_STAGE_CONFIG[stepStage].label}"
+												>
+													<div class="w-2 h-2 mx-auto rounded-full mb-1 {isCurrent ? 'bg-sky-400 ring-2 ring-sky-400/30' : isPassed ? 'bg-emerald-400' : 'bg-zinc-700'}"></div>
+													<span class="block text-[9px] font-medium leading-tight truncate {isCurrent ? 'text-white font-bold' : isPassed ? 'text-zinc-300' : 'text-zinc-500'}">
+														{PROJECT_STAGE_CONFIG[stepStage].label.split('. ')[1] || stepStage}
+													</span>
+												</button>
+											{/each}
+										</div>
+									</div>
+
+									<!-- Dates & Links -->
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										<div class="rounded-lg bg-zinc-950/40 p-2 border border-zinc-800/40 flex items-center justify-between">
+											<span class="text-[10px] text-zinc-500">Início do Projeto:</span>
+											<span class="font-mono text-zinc-300">{proj.startDate || '—'}</span>
+										</div>
+										<div class="rounded-lg bg-zinc-950/40 p-2 border border-zinc-800/40 flex items-center justify-between">
+											<span class="text-[10px] text-zinc-500">Previsão de Entrega:</span>
+											<span class="font-mono font-semibold text-zinc-200">{proj.targetDeliveryDate || 'A definir'}</span>
+										</div>
+
+										{#if proj.demoUrl}
+											<div class="col-span-1 sm:col-span-2 rounded-lg bg-zinc-950/40 p-2 border border-zinc-800/40 flex items-center justify-between">
+												<span class="text-[10px] text-zinc-500">Link de Demonstração / Homologação:</span>
+												<a
+													href={proj.demoUrl.startsWith('http') ? proj.demoUrl : `https://${proj.demoUrl}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="text-[11px] text-sky-400 hover:underline flex items-center gap-1 truncate"
+												>
+													<span>{proj.demoUrl}</span>
+													<Icon name="external" class="w-3 h-3 shrink-0" />
+												</a>
+											</div>
+										{/if}
+									</div>
+
+									<!-- Action Buttons Footer -->
+									<div class="flex items-center justify-end gap-1.5 pt-2 border-t border-zinc-800/80 text-xs">
+										<button
+											type="button"
+											onclick={() => openEditProject(proj)}
+											class="flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+											title="Editar informações do projeto"
+										>
+											<Icon name="edit" class="w-3.5 h-3.5" />
+											<span>Editar</span>
+										</button>
+										<button
+											type="button"
+											onclick={() => deletingProject = proj}
+											class="rounded p-1 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-300 transition-colors cursor-pointer"
+											title="Remover projeto"
+										>
+											<Icon name="trash" class="w-3.5 h-3.5" />
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="globe" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhum projeto em desenvolvimento</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Acompanhe a criação de Websites, Aplicações Móveis e Softwares por medida para este cliente.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={openAddProject}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Criar Primeiro Projeto
+							</button>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB: PROPOSALS -->
 			{:else if activeTab === 'proposals'}
 				<div class="space-y-4">
 					<div class="flex items-center justify-between">
@@ -1813,4 +2137,254 @@
 		</div>
 	</div>
 {/if}
+
+<!-- MODAL: PROJECT EDITOR -->
+{#if isProjectModalOpen}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Dialog -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-indigo-950/60 p-2 text-indigo-400 border border-indigo-800/60">
+						<Icon name="globe" class="w-4 h-4" />
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-white">
+							{editingProjectId ? 'Editar Projeto Digital' : 'Novo Projeto por Medida'}
+						</h3>
+						<p class="text-[11px] text-zinc-400">
+							{lead?.title}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => isProjectModalOpen = false}
+					class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
+
+			<!-- Scrollable Form Body -->
+			<div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+				<!-- Project Name -->
+				<div class="space-y-1">
+					<label for="proj-name" class="block text-[11px] font-medium text-zinc-300">Nome / Escopo do Projeto *</label>
+					<input
+						id="proj-name"
+						type="text"
+						bind:value={formProjName}
+						placeholder="Ex: Website Institucional com Catálogo de Produtos..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+					/>
+				</div>
+
+				<!-- Type & Estimated Value -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="proj-type" class="block text-[11px] font-medium text-zinc-300">Tipo de Projeto</label>
+						<select
+							id="proj-type"
+							bind:value={formProjType}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="website">Website Institucional</option>
+							<option value="mobile_app">Aplicação Móvel (App)</option>
+							<option value="custom_system">Sistema / Software por Medida</option>
+							<option value="ecommerce">Loja Virtual / E-commerce</option>
+							<option value="landing_page">Landing Page Comercial</option>
+							<option value="portal">Portal do Cliente / Web App</option>
+							<option value="other">Outro Projeto Digital</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="proj-val" class="block text-[11px] font-medium text-zinc-300">Valor Cotado (Kz)</label>
+						<input
+							id="proj-val"
+							type="number"
+							bind:value={formProjValue}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-emerald-400 font-mono font-bold focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Stage Selector & Progress -->
+				<div class="space-y-2 rounded-lg bg-zinc-900/40 p-3 border border-zinc-800">
+					<div class="flex items-center justify-between">
+						<label for="proj-stage" class="block text-[11px] font-medium text-zinc-300">Etapa do Projeto</label>
+						<span class="font-mono text-xs font-bold text-zinc-200">{formProjProgress}% concluído</span>
+					</div>
+
+					<select
+						id="proj-stage"
+						value={formProjStage}
+						onchange={(e) => handleProjectStageSelect((e.target as HTMLSelectElement).value as ProjectStage)}
+						class="w-full rounded-lg bg-zinc-950 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+					>
+						<option value="briefing">1. Briefing & Levantamento de Requisitos</option>
+						<option value="design_ui">2. Design UI / UX & Protótipo</option>
+						<option value="development">3. Desenvolvimento & Programação</option>
+						<option value="testing">4. Testes & Homologação</option>
+						<option value="completed">5. Concluído & Publicado</option>
+						<option value="on_hold">Em Pausa / Aguarda Feedback</option>
+					</select>
+
+					<!-- Progress Slider -->
+					<div class="pt-2 space-y-1">
+						<input
+							type="range"
+							min="0"
+							max="100"
+							step="5"
+							bind:value={formProjProgress}
+							class="w-full accent-sky-400 cursor-pointer"
+						/>
+					</div>
+				</div>
+
+				<!-- Dates -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="proj-start" class="block text-[11px] font-medium text-zinc-300">Data de Início</label>
+						<input
+							id="proj-start"
+							type="date"
+							bind:value={formProjStartDate}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="proj-delivery" class="block text-[11px] font-medium text-zinc-300">Previsão de Entrega</label>
+						<input
+							id="proj-delivery"
+							type="date"
+							bind:value={formProjDeliveryDate}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- URLs -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="proj-demo" class="block text-[11px] font-medium text-zinc-300">Link de Demonstração / Homologação</label>
+						<input
+							id="proj-demo"
+							type="text"
+							bind:value={formProjDemoUrl}
+							placeholder="Ex: dev.cliente.co.ao"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="proj-repo" class="block text-[11px] font-medium text-zinc-300">Repositório / Código (Opcional)</label>
+						<input
+							id="proj-repo"
+							type="text"
+							bind:value={formProjRepoUrl}
+							placeholder="Ex: github.com/empresa/repo"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div class="space-y-1">
+					<label for="proj-notes" class="block text-[11px] font-medium text-zinc-300">Especificações / Observações</label>
+					<textarea
+						id="proj-notes"
+						bind:value={formProjNotes}
+						rows="2"
+						placeholder="Ex: Integração com gateway de pagamentos Multicaixa Express e área de cliente..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => isProjectModalOpen = false}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={handleSaveProject}
+					class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+				>
+					<Icon name="check" class="w-3.5 h-3.5" />
+					<span>{editingProjectId ? 'Salvar Alterações' : 'Criar Projeto'}</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: DELETE PROJECT CONFIRMATION -->
+{#if deletingProject}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Projeto de Desenvolvimento?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação removerá o registo do projeto <strong class="text-zinc-200">"{deletingProject.name}"</strong> associado a esta empresa.
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-2.5 text-xs font-mono space-y-1">
+						<div class="flex justify-between text-zinc-300">
+							<span>Etapa:</span>
+							<span class="text-zinc-100">{PROJECT_STAGE_CONFIG[deletingProject.stage]?.label || deletingProject.stage}</span>
+						</div>
+						<div class="flex justify-between text-zinc-400 text-[11px]">
+							<span>Valor:</span>
+							<span class="text-emerald-400">{formatKz(deletingProject.estimatedValue)}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingProject = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteProj}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Projeto</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 
