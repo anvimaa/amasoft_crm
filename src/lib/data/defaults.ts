@@ -124,21 +124,21 @@ export const DEFAULT_SAAS_CATALOG = [
 		description: 'Software de faturação certificado pela AGT com módulos de vendas, clientes, stock e tesouraria.',
 		defaultPlans: [
 			{
-				name: 'Plano Básico (Mono-Posto)',
-				priceMonthlyKz: 15000,
-				priceAnnualKz: 150000,
+				name: 'Plano Starter',
+				priceMonthlyKz: 7500,
+				priceAnnualKz: 72000,
 				features: ['1 Posto de Trabalho', 'Faturação Ilimitada', 'Certificação AGT', 'Suporte Standard']
 			},
 			{
-				name: 'Plano Profissional (Multi-Caixa)',
-				priceMonthlyKz: 35000,
+				name: 'Plano Profissional',
+				priceMonthlyKz: 15000,
 				priceAnnualKz: 350000,
 				features: ['Até 3 Postos', 'Gestão de Stocks', 'Faturação e Recibos', 'Relatórios Avançados', 'Suporte Prioritário']
 			},
 			{
 				name: 'Plano Corporativo / Enterprise',
-				priceMonthlyKz: 75000,
-				priceAnnualKz: 750000,
+				priceMonthlyKz: 30000,
+				priceAnnualKz: 288000,
 				features: ['Postos Ilimitados', 'Multi-Armazém', 'Gestão Financeira & Tesouraria', 'Acesso Multi-Utilizador', 'Suporte 24/7']
 			}
 		]
