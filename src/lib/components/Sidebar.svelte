@@ -297,7 +297,7 @@
 				type="button"
 				onclick={() => navigateTo("talao")}
 				class="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-colors cursor-pointer {page
-					.url.pathname === '/talao' || page.url.pathname === '/recibo-termico'
+					.url.pathname.startsWith('/talao') || page.url.pathname === '/recibo-termico'
 					? 'bg-zinc-800/90 text-white font-semibold'
 					: 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}"
 			>

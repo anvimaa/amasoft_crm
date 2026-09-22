@@ -175,6 +175,28 @@
 </script>
 
 <div class="space-y-6 pb-12">
+	<!-- Receipt Type Tabs -->
+	<div class="flex items-center gap-2 border-b border-zinc-800 pb-3">
+		<a
+			href="/talao"
+			class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3.5 py-2 text-xs font-semibold text-white border border-zinc-700/60 transition-colors shadow-sm"
+		>
+			<Icon name="file-text" class="w-4 h-4 text-emerald-400" />
+			<span>Talão BUAP (Prova de Vida)</span>
+		</a>
+
+		<a
+			href="/talao/rupe"
+			class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+		>
+			<Icon name="money" class="w-4 h-4 text-amber-400" />
+			<span>Talão RUPE (BAI / Finanças)</span>
+			<span class="rounded bg-amber-950/80 text-amber-400 border border-amber-800/40 text-[10px] font-mono px-1 py-0.2">
+				Novo
+			</span>
+		</a>
+	</div>
+
 	<!-- Page Header -->
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 		<div>
