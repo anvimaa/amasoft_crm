@@ -11,22 +11,31 @@ const COOKIE_NAME = 'amasoft_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 function getSecret(): string {
-	return AUTH_SECRET || process.env.AUTH_SECRET || 'amasoft-crm-default-auth-secret-key-2026-ao';
+	if (!AUTH_SECRET) {
+		throw new Error('AUTH_SECRET environment variable is not configured');
+	}
+	return AUTH_SECRET;
 }
 
 function getValidUsername(): string {
-	return USER_NAME || process.env.USER_NAME || 'anvima';
+	if (!USER_NAME) {
+		throw new Error('USER_NAME environment variable is not configured');
+	}
+	return USER_NAME;
 }
 
 function getValidPassword(): string {
-	return PASSWORD || process.env.PASSWORD || 'YxzveZ3a2h175w==';
+	if (!PASSWORD) {
+		throw new Error('PASSWORD environment variable is not configured');
+	}
+	return PASSWORD;
 }
 
 /**
  * Validates provided credentials against server environment variables.
  */
 export function verifyCredentials(username?: string, password?: string): boolean {
-	if (!username || !password) return false;
+	if (!username || !password || !USER_NAME || !PASSWORD) return false;
 	const expectedUser = getValidUsername();
 	const expectedPass = getValidPassword();
 

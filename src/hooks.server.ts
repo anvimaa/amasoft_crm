@@ -1,8 +1,14 @@
 import type { Handle } from '@sveltejs/kit/hooks';
 import { redirect } from '@sveltejs/kit';
 import { getSessionUser } from '#lib/server/auth.ts';
+import { FACTFLEXI_API_KEY } from '$app/env/private';
 
-const PUBLIC_API_ROUTES = ['/api/auth/login', '/api/auth/logout'];
+const PUBLIC_API_ROUTES = [
+	'/api/auth/login',
+	'/api/auth/logout',
+	'/api/v1/leads/external',
+	'/api/webhooks/factflexi'
+];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// 1. Populate user session in event.locals
@@ -14,12 +20,29 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// 2. API Route Protection
 	if (pathname.startsWith('/api/')) {
 		const isPublicApi = PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
-		if (!isPublicApi && !user) {
+		
+		// Check API Key authentication
+		const apiKeyHeader = event.request.headers.get('x-api-key') || event.request.headers.get('api-key');
+		const authHeader = event.request.headers.get('authorization');
+		const bearerKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+		const queryKey = event.url.searchParams.get('apiKey') || event.url.searchParams.get('api_key');
+		
+		const expectedKey = FACTFLEXI_API_KEY?.trim();
+		const isApiKeyValid = Boolean(
+			expectedKey &&
+			(
+				(apiKeyHeader && apiKeyHeader.trim() === expectedKey) ||
+				(bearerKey && bearerKey === expectedKey) ||
+				(queryKey && queryKey.trim() === expectedKey)
+			)
+		);
+
+		if (!isPublicApi && !isApiKeyValid && !user) {
 			return Response.json(
 				{
 					success: false,
 					error: 'Unauthorized',
-					message: 'Sessão expirada ou não autenticado. Efetue login novamente.'
+					message: 'Sessão expirada ou chave de API inválida. Forneça uma chave de API válida.'
 				},
 				{ status: 401 }
 			);

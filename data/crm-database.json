@@ -1,5 +1,54 @@
 [
   {
+    "id": "lead-ff-1790105464777-534",
+    "title": "Unitel Teste Empresa FactFlexi",
+    "categories": [
+      "Telecomunicações"
+    ],
+    "categoryName": "Telecomunicações",
+    "address": null,
+    "neighborhood": null,
+    "street": null,
+    "city": "Luanda",
+    "postalCode": null,
+    "state": "Luanda",
+    "countryCode": "AO",
+    "website": null,
+    "phone": "+244 923 456 789",
+    "phoneUnformatted": "+244923456789",
+    "location": null,
+    "plusCode": null,
+    "status": "lead",
+    "priority": "hot",
+    "estimatedValue": 0,
+    "tags": [
+      "Fact Flexi",
+      "Luanda",
+      "Sem Website",
+      "Telefone Válido",
+      "NIF: 5401928374"
+    ],
+    "notes": [
+      {
+        "id": "note-1790105464781",
+        "content": "Cliente sincronizado via Fact Flexi API. NIF: 5401928374, Contacto: Dr. Manuel Santos.",
+        "createdAt": "2026-09-22T19:31:04.781Z",
+        "type": "general"
+      },
+      {
+        "id": "note-1790105464777",
+        "content": "Lead cadastrado automaticamente via Fact Flexi API. NIF: 5401928374 | Responsável: Dr. Manuel Santos.",
+        "createdAt": "2026-09-22T19:31:04.776Z",
+        "type": "general"
+      }
+    ],
+    "lastContactDate": null,
+    "nextFollowUpDate": null,
+    "email": "comercial@unitelteste.ao",
+    "decisionMaker": "Dr. Manuel Santos",
+    "decisionMakerRole": "Diretor Comercial"
+  },
+  {
     "title": "PAFIFE LDA",
     "categoryName": "Prestação de Serviços",
     "categories": [

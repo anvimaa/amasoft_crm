@@ -1,18 +1,30 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { verifyCredentials, createSessionCookie, type AuthUser } from '#lib/server/auth.ts';
+import { z } from 'zod';
+
+const LoginSchema = z.object({
+	username: z.string().trim().min(1, 'Nome de utilizador é obrigatório.'),
+	password: z.string().trim().min(1, 'Palavra-passe é obrigatória.')
+});
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
-		const body = await request.json();
-		const { username, password } = body;
+		const rawBody = await request.json();
+		const validation = LoginSchema.safeParse(rawBody);
 
-		if (!username || !password) {
+		if (!validation.success) {
 			return json(
-				{ success: false, message: 'Nome de utilizador e palavra-passe são obrigatórios.' },
+				{
+					success: false,
+					message: validation.error.issues[0]?.message || 'Credenciais inválidas.',
+					details: validation.error.issues
+				},
 				{ status: 400 }
 			);
 		}
+
+		const { username, password } = validation.data;
 
 		const isValid = verifyCredentials(username, password);
 		if (!isValid) {
