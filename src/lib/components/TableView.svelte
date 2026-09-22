@@ -72,6 +72,7 @@
 		crmStore.filters.category = 'all';
 		crmStore.filters.hasWebsite = 'all';
 		crmStore.filters.hasPhone = 'all';
+		crmStore.filters.businessLine = 'all';
 		currentPage = 1;
 	}
 
@@ -134,14 +135,31 @@
 		</div>
 
 		<!-- Dropdowns Grid -->
-		<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-zinc-800/60">
+		<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 pt-2 border-t border-zinc-800/60">
+			<!-- Business Line -->
+			<div>
+				<label for="filter-bline" class="block text-[10px] font-medium text-zinc-400 mb-1">Linha de Negócio</label>
+				<select
+					id="filter-bline"
+					bind:value={crmStore.filters.businessLine}
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
+				>
+					<option value="all">Todas as Linhas</option>
+					<option value="has_saas">Subscrição SaaS</option>
+					<option value="has_factflexi">Fact Flexi (SaaS)</option>
+					<option value="has_project">Projetos Web/App</option>
+					<option value="has_contract">Contratos & Suporte</option>
+					<option value="prospect_only">Apenas Prospeção</option>
+				</select>
+			</div>
+
 			<!-- Status -->
 			<div>
 				<label for="filter-status" class="block text-[10px] font-medium text-zinc-400 mb-1">Estágio</label>
 				<select
 					id="filter-status"
 					bind:value={crmStore.filters.status}
-					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none"
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
 					<option value="all">Todos os Estágios</option>
 					<option value="lead">Novo Lead</option>
@@ -159,9 +177,9 @@
 				<select
 					id="filter-priority"
 					bind:value={crmStore.filters.priority}
-					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none"
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
-					<option value="all">Todas as Prioridades</option>
+					<option value="all">Todas</option>
 					<option value="hot">Alta</option>
 					<option value="warm">Média</option>
 					<option value="cold">Baixa</option>
@@ -174,9 +192,9 @@
 				<select
 					id="filter-city"
 					bind:value={crmStore.filters.city}
-					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none"
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
-					<option value="all">Todas as Regiões</option>
+					<option value="all">Todas</option>
 					{#each crmStore.availableCities as city}
 						<option value={city}>{city}</option>
 					{/each}
@@ -189,7 +207,7 @@
 				<select
 					id="filter-category"
 					bind:value={crmStore.filters.category}
-					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
 					<option value="all">Todos os Setores</option>
 					{#each crmStore.availableCategories as cat}
@@ -204,7 +222,7 @@
 				<select
 					id="filter-website"
 					bind:value={crmStore.filters.hasWebsite}
-					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none"
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
 					<option value="all">Todos</option>
 					<option value="no">Sem Website</option>
@@ -218,7 +236,7 @@
 				<select
 					id="filter-sort"
 					bind:value={crmStore.filters.sortBy}
-					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none"
+					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
 					<option value="title">Nome da Empresa</option>
 					<option value="city">Cidade</option>
@@ -251,7 +269,7 @@
 							onclick={() => crmStore.selectLead(lead)}
 							class="hover:bg-zinc-800/30 transition-colors cursor-pointer group"
 						>
-							<!-- Title & Sector -->
+							<!-- Title & Sector + Service Badges -->
 							<td class="px-4 py-3 max-w-xs">
 								<div class="font-semibold text-zinc-100 group-hover:text-white transition-colors line-clamp-1">
 									{lead.title}
@@ -259,6 +277,33 @@
 								<div class="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
 									{lead.categoryName}
 								</div>
+
+								<!-- Multi-Business Line Badges -->
+								{#if (lead.subscriptions && lead.subscriptions.length > 0) || (lead.projects && lead.projects.length > 0) || (lead.supportContracts && lead.supportContracts.length > 0)}
+									<div class="flex items-center gap-1.5 flex-wrap mt-1.5">
+										{#if lead.subscriptions?.some(s => s.productName.toLowerCase().includes('fact flexi') || s.productName.toLowerCase().includes('factflexi'))}
+											<span class="rounded bg-sky-950/70 border border-sky-800/70 px-1.5 py-0.2 text-[9px] font-semibold text-sky-300">
+												Fact Flexi
+											</span>
+										{:else if lead.subscriptions && lead.subscriptions.length > 0}
+											<span class="rounded bg-sky-950/70 border border-sky-800/70 px-1.5 py-0.2 text-[9px] font-semibold text-sky-300">
+												SaaS ({lead.subscriptions.length})
+											</span>
+										{/if}
+
+										{#if lead.projects && lead.projects.length > 0}
+											<span class="rounded bg-indigo-950/70 border border-indigo-800/70 px-1.5 py-0.2 text-[9px] font-semibold text-indigo-300">
+												Web/App ({lead.projects.length})
+											</span>
+										{/if}
+
+										{#if lead.supportContracts && lead.supportContracts.length > 0}
+											<span class="rounded bg-amber-950/70 border border-amber-800/70 px-1.5 py-0.2 text-[9px] font-semibold text-amber-300">
+												Suporte ({lead.supportContracts.length})
+											</span>
+										{/if}
+									</div>
+								{/if}
 							</td>
 
 							<!-- Location -->

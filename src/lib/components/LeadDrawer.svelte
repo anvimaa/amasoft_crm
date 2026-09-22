@@ -6,15 +6,43 @@
 	import Icon from './Icon.svelte';
 	import StatusBadge from './StatusBadge.svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
-	import type { ClientLead, CommercialProposal, InteractionOutcome, LeadPriority, LeadStatus, NoteType } from '../types/crm';
+	import type {
+		ClientLead,
+		CommercialProposal,
+		InteractionOutcome,
+		LeadPriority,
+		LeadStatus,
+		NoteType,
+		SaaSSubscription,
+		BillingCycle,
+		SubscriptionStatus,
+		ClientProject,
+		ProjectType,
+		ProjectStage,
+		SupportContract,
+		SupportContractType,
+		SupportContractStatus
+	} from '../types/crm';
 	import { generateWhatsAppLink, WHATSAPP_CATEGORIES } from '../utils/whatsapp';
 	import { formatKz } from '../utils/format';
 	import { generateProposalPDF } from '../utils/pdf-generator';
+	import { saasStore } from '../stores/saas.svelte';
 
 	import { toast } from '../stores/toast.svelte';
 
+	const BILLING_CYCLES: { id: BillingCycle; label: string }[] = [
+		{ id: 'monthly', label: 'Mensal' },
+		{ id: 'quarterly', label: 'Trimestral' },
+		{ id: 'semiannual', label: 'Semestral' },
+		{ id: 'annual', label: 'Anual' },
+		{ id: 'lifetime', label: 'Vitalício' }
+	];
+
 	let lead = $derived(crmStore.selectedLead);
 	let leadProposals = $derived.by(() => (lead ? proposalsStore.getProposalsByLead(lead.id) : []));
+	let leadSubscriptions = $derived.by(() => (lead?.subscriptions || []));
+	let leadProjects = $derived.by(() => (lead?.projects || []));
+	let leadContracts = $derived.by(() => (lead?.supportContracts || []));
 	
 	let selectedTemplateId = $state<string>('');
 	let customMessage = $state<string>('');
@@ -25,7 +53,58 @@
 	let noteChannelFilter = $state<'all' | NoteType>('all');
 	let isConfirmingDelete = $state<boolean>(false);
 
-	let activeTab = $state<'whatsapp' | 'proposals' | 'notes' | 'details'>('whatsapp');
+	let activeTab = $state<'whatsapp' | 'saas' | 'projects' | 'proposals' | 'contracts' | 'notes' | 'details'>('whatsapp');
+	let isWideMode = $state<boolean>(false);
+
+	let isSubModalOpen = $state<boolean>(false);
+	let editingSubId = $state<string | null>(null);
+	let deletingSub = $state<SaaSSubscription | null>(null);
+
+	let isCustomProduct = $state<boolean>(false);
+	let isCustomPlan = $state<boolean>(false);
+
+	let formSubProduct = $state<string>('Fact Flexi');
+	let formSubPlan = $state<string>('Plano Profissional (Multi-Caixa)');
+	let formSubCycle = $state<BillingCycle>('annual');
+	let formSubPrice = $state<number>(350000);
+	let formSubStatus = $state<SubscriptionStatus>('active');
+	let formSubStart = $state<string>(new Date().toISOString().slice(0, 10));
+	let formSubRenewal = $state<string>('');
+	let formSubUrl = $state<string>('');
+	let formSubKey = $state<string>('');
+	let formSubNotes = $state<string>('');
+
+	// Projects management state
+	let isProjectModalOpen = $state<boolean>(false);
+	let editingProjectId = $state<string | null>(null);
+	let deletingProject = $state<ClientProject | null>(null);
+
+	let formProjName = $state<string>('');
+	let formProjType = $state<ProjectType>('website');
+	let formProjStage = $state<ProjectStage>('development');
+	let formProjProgress = $state<number>(50);
+	let formProjValue = $state<number>(0);
+	let formProjStartDate = $state<string>(new Date().toISOString().slice(0, 10));
+	let formProjDeliveryDate = $state<string>('');
+	let formProjDemoUrl = $state<string>('');
+	let formProjRepoUrl = $state<string>('');
+	let formProjNotes = $state<string>('');
+
+	// Support Contracts management state
+	let isContractModalOpen = $state<boolean>(false);
+	let editingContractId = $state<string | null>(null);
+	let deletingContract = $state<SupportContract | null>(null);
+
+	let formContractTitle = $state<string>('');
+	let formContractType = $state<SupportContractType>('technical_support');
+	let formContractStatus = $state<SupportContractStatus>('active');
+	let formContractHours = $state<number>(10);
+	let formContractPrice = $state<number>(120000);
+	let formContractCycle = $state<BillingCycle>('monthly');
+	let formContractStart = $state<string>(new Date().toISOString().slice(0, 10));
+	let formContractEnd = $state<string>('');
+	let formContractSla = $state<string>('Atendimento presencial em até 4h e suporte remoto prioritário.');
+	let formContractNotes = $state<string>('');
 
 	// Contact & follow-up drafts (synced from selected lead)
 	let decisionMaker = $state<string>('');
@@ -199,6 +278,503 @@
 		}
 	}
 
+	function calculateRenewalDate(startDate: string, cycle: BillingCycle): string {
+		if (!startDate) return '';
+		const d = new Date(startDate);
+		if (isNaN(d.getTime())) return '';
+		if (cycle === 'monthly') d.setMonth(d.getMonth() + 1);
+		else if (cycle === 'quarterly') d.setMonth(d.getMonth() + 3);
+		else if (cycle === 'semiannual') d.setMonth(d.getMonth() + 6);
+		else if (cycle === 'annual') d.setFullYear(d.getFullYear() + 1);
+		else if (cycle === 'lifetime') d.setFullYear(d.getFullYear() + 99);
+		return d.toISOString().slice(0, 10);
+	}
+
+	let currentCatalogProduct = $derived.by(() => {
+		return saasStore.catalog.find((x) => x.name.toLowerCase() === formSubProduct.toLowerCase());
+	});
+
+	let availablePlansForCurrentProduct = $derived.by(() => {
+		return currentCatalogProduct ? currentCatalogProduct.defaultPlans : [];
+	});
+
+	function handleProductSelect(productName: string) {
+		if (productName === 'custom') {
+			isCustomProduct = true;
+			isCustomPlan = true;
+			formSubProduct = '';
+			formSubPlan = '';
+			formSubPrice = 0;
+			return;
+		}
+
+		isCustomProduct = false;
+		formSubProduct = productName;
+		const cat = saasStore.catalog.find((x) => x.name === productName);
+		if (cat && cat.defaultPlans.length > 0) {
+			isCustomPlan = false;
+			formSubPlan = cat.defaultPlans[0].name;
+			updatePriceFromCatalog(cat, cat.defaultPlans[0].name, formSubCycle);
+		}
+		formSubRenewal = calculateRenewalDate(formSubStart, formSubCycle);
+	}
+
+	function handlePlanSelect(planName: string) {
+		if (planName === 'custom') {
+			isCustomPlan = true;
+			formSubPlan = '';
+			return;
+		}
+
+		isCustomPlan = false;
+		formSubPlan = planName;
+		const cat = currentCatalogProduct;
+		if (cat) {
+			updatePriceFromCatalog(cat, planName, formSubCycle);
+		}
+	}
+
+	function updatePriceFromCatalog(catItem: any, planName: string, cycle: BillingCycle) {
+		const pl = catItem.defaultPlans.find((x: any) => x.name === planName);
+		if (pl) {
+			if (cycle === 'annual') {
+				formSubPrice = pl.priceAnnualKz;
+			} else if (cycle === 'monthly') {
+				formSubPrice = pl.priceMonthlyKz;
+			} else if (cycle === 'quarterly') {
+				formSubPrice = pl.priceMonthlyKz * 3;
+			} else if (cycle === 'semiannual') {
+				formSubPrice = pl.priceMonthlyKz * 6;
+			} else if (cycle === 'lifetime') {
+				formSubPrice = pl.priceAnnualKz * 2.5;
+			}
+		}
+	}
+
+	function handleCycleChange(newCycle: BillingCycle) {
+		formSubCycle = newCycle;
+		formSubRenewal = calculateRenewalDate(formSubStart, newCycle);
+		if (currentCatalogProduct && !isCustomPlan) {
+			updatePriceFromCatalog(currentCatalogProduct, formSubPlan, newCycle);
+		}
+	}
+
+	function openAddSubscription() {
+		editingSubId = null;
+		isCustomProduct = false;
+		isCustomPlan = false;
+		formSubProduct = 'Fact Flexi';
+		formSubPlan = 'Plano Profissional (Multi-Caixa)';
+		formSubCycle = 'annual';
+		formSubPrice = 350000;
+		formSubStatus = 'active';
+		formSubStart = new Date().toISOString().slice(0, 10);
+		formSubRenewal = calculateRenewalDate(formSubStart, 'annual');
+		formSubUrl = '';
+		formSubKey = `FF-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${new Date().getFullYear()}`;
+		formSubNotes = '';
+		isSubModalOpen = true;
+	}
+
+	function openEditSubscription(sub: SaaSSubscription) {
+		editingSubId = sub.id;
+		formSubProduct = sub.productName;
+		formSubPlan = sub.planName;
+		formSubCycle = sub.billingCycle;
+		formSubPrice = sub.priceKz;
+		formSubStatus = sub.status;
+		formSubStart = sub.startDate;
+		formSubRenewal = sub.renewalDate;
+		formSubUrl = sub.instanceUrl || '';
+		formSubKey = sub.licenseKey || '';
+		formSubNotes = sub.notes || '';
+
+		const matchingCat = saasStore.catalog.find((x) => x.name.toLowerCase() === sub.productName.toLowerCase());
+		isCustomProduct = !matchingCat;
+		if (matchingCat) {
+			const matchingPlan = matchingCat.defaultPlans.find((x) => x.name.toLowerCase() === sub.planName.toLowerCase());
+			isCustomPlan = !matchingPlan;
+		} else {
+			isCustomPlan = true;
+		}
+
+		isSubModalOpen = true;
+	}
+
+	function handleSaveSubscription() {
+		if (!lead) return;
+		if (!formSubProduct.trim() || !formSubPlan.trim()) {
+			toast.error('Campos Obrigatórios', 'Indique o nome do software e do plano.');
+			return;
+		}
+
+		if (editingSubId) {
+			crmStore.updateSubscription(lead.id, editingSubId, {
+				productName: formSubProduct.trim(),
+				planName: formSubPlan.trim(),
+				billingCycle: formSubCycle,
+				priceKz: Number(formSubPrice) || 0,
+				status: formSubStatus,
+				startDate: formSubStart,
+				renewalDate: formSubRenewal || calculateRenewalDate(formSubStart, formSubCycle),
+				instanceUrl: formSubUrl.trim() || undefined,
+				licenseKey: formSubKey.trim() || undefined,
+				notes: formSubNotes.trim() || undefined
+			});
+			toast.success('Subscrição Atualizada', `Licença de "${formSubProduct}" atualizada.`);
+		} else {
+			crmStore.addSubscription(lead.id, {
+				productName: formSubProduct.trim(),
+				planName: formSubPlan.trim(),
+				billingCycle: formSubCycle,
+				priceKz: Number(formSubPrice) || 0,
+				status: formSubStatus,
+				startDate: formSubStart,
+				renewalDate: formSubRenewal || calculateRenewalDate(formSubStart, formSubCycle),
+				instanceUrl: formSubUrl.trim() || undefined,
+				licenseKey: formSubKey.trim() || undefined,
+				notes: formSubNotes.trim() || undefined
+			});
+			toast.success('Subscrição Registada', `Licença de "${formSubProduct}" associada à empresa.`);
+		}
+		isSubModalOpen = false;
+	}
+
+	function confirmDeleteSub() {
+		if (!lead || !deletingSub) return;
+		crmStore.deleteSubscription(lead.id, deletingSub.id);
+		toast.info('Subscrição Removida', `A licença de "${deletingSub.productName}" foi eliminada.`);
+		deletingSub = null;
+	}
+
+	function sendSubscriptionRenewalNotice(sub: SaaSSubscription) {
+		if (!lead) return;
+		if (!lead.phone) {
+			toast.error('Sem Telefone', 'O cliente não possui telefone registado para envio WhatsApp.');
+			return;
+		}
+
+		const comp = companyStore.company;
+		const cycleLabels: Record<BillingCycle, string> = {
+			monthly: 'Mensal',
+			quarterly: 'Trimestral',
+			semiannual: 'Semestral',
+			annual: 'Anual',
+			lifetime: 'Vitalício'
+		};
+
+		const bankSection = comp.bankIban
+			? `\n*Coordenadas Bancárias para Pagamento:*\n• *Banco:* ${comp.bankName || 'BAI'}\n• *IBAN:* ${comp.bankIban}\n• *Titular:* ${comp.bankAccountHolder || comp.name}`
+			: '';
+
+		const message = `*Aviso de Renovação de Licença — ${comp.name}*\n\nEstimada equipa da *${lead.title}*,\n\nEsperamos que se encontrem bem.\n\nInformamos que a subscrição do vosso software *${sub.productName}* (*${sub.planName}*) tem renovação agendada para o dia *${sub.renewalDate}*.\n\n*Detalhes da Subscrição:*\n• *Software:* ${sub.productName}\n• *Plano:* ${sub.planName}\n• *Ciclo:* ${cycleLabels[sub.billingCycle]}\n• *Valor de Renovação:* *${formatKz(sub.priceKz)}*${sub.licenseKey ? `\n• *Ref/Chave:* \`${sub.licenseKey}\`` : ''}${bankSection}\n\nApós o envio do comprovativo de pagamento, procederemos à extensão imediata da licença no sistema.\n\nCom os melhores cumprimentos,\n*${comp.name}*\n${comp.phone || ''}`;
+
+		const link = generateWhatsAppLink(lead.phone, message);
+		if (link) {
+			window.open(link, '_blank');
+			toast.success('WhatsApp de Renovação', 'Mensagem de renovação gerada e aberta no WhatsApp.');
+		}
+	}
+
+	function getSubscriptionDaysInfo(renewalDateStr: string): { days: number; label: string; isUrgent: boolean; isExpired: boolean } {
+		if (!renewalDateStr) return { days: 0, label: 'Data indefinida', isUrgent: false, isExpired: false };
+		const target = new Date(renewalDateStr);
+		if (isNaN(target.getTime())) return { days: 0, label: renewalDateStr, isUrgent: false, isExpired: false };
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const t = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+		const diffDays = Math.round((t.getTime() - today.getTime()) / 86400000);
+
+		if (diffDays < 0) {
+			return { days: diffDays, label: `Expirou há ${Math.abs(diffDays)} dias`, isUrgent: true, isExpired: true };
+		}
+		if (diffDays === 0) {
+			return { days: 0, label: 'Expira hoje!', isUrgent: true, isExpired: false };
+		}
+		if (diffDays <= 15) {
+			return { days: diffDays, label: `Expira em ${diffDays} dias`, isUrgent: true, isExpired: false };
+		}
+		if (diffDays <= 30) {
+			return { days: diffDays, label: `Expira em ${diffDays} dias`, isUrgent: false, isExpired: false };
+		}
+		return { days: diffDays, label: `Renovação: ${t.toLocaleDateString('pt-AO')}`, isUrgent: false, isExpired: false };
+	}
+
+	const PROJECT_TYPE_LABELS: Record<ProjectType, { label: string; icon: string }> = {
+		website: { label: 'Website Institucional', icon: 'globe' },
+		mobile_app: { label: 'Aplicação Móvel (App)', icon: 'phone' },
+		custom_system: { label: 'Sistema / Software por Medida', icon: 'building' },
+		ecommerce: { label: 'Loja Virtual / E-commerce', icon: 'money' },
+		landing_page: { label: 'Landing Page Comercial', icon: 'sparkles' },
+		portal: { label: 'Portal do Cliente / Web App', icon: 'globe' },
+		other: { label: 'Outro Projeto Digital', icon: 'file' }
+	};
+
+	const PROJECT_STAGE_CONFIG: Record<ProjectStage, { label: string; defaultProgress: number; bg: string; text: string; border: string }> = {
+		briefing: { label: '1. Briefing & Requisitos', defaultProgress: 15, bg: 'bg-zinc-800', text: 'text-zinc-300', border: 'border-zinc-700' },
+		design_ui: { label: '2. Design UI & Protótipo', defaultProgress: 35, bg: 'bg-indigo-950/60', text: 'text-indigo-300', border: 'border-indigo-800' },
+		development: { label: '3. Desenvolvimento & Código', defaultProgress: 65, bg: 'bg-sky-950/60', text: 'text-sky-300', border: 'border-sky-800' },
+		testing: { label: '4. Testes & Homologação', defaultProgress: 85, bg: 'bg-amber-950/60', text: 'text-amber-300', border: 'border-amber-800' },
+		completed: { label: '5. Publicado / Concluído', defaultProgress: 100, bg: 'bg-emerald-950/60', text: 'text-emerald-300', border: 'border-emerald-800' },
+		on_hold: { label: 'Pausa / Aguarda Cliente', defaultProgress: 50, bg: 'bg-rose-950/60', text: 'text-rose-300', border: 'border-rose-800' }
+	};
+
+	const PROJECT_STAGES_LIST: ProjectStage[] = ['briefing', 'design_ui', 'development', 'testing', 'completed'];
+
+	function openAddProject() {
+		editingProjectId = null;
+		formProjName = lead?.website ? 'Reformulação de Website Institucional' : 'Desenvolvimento de Website Corporativo';
+		formProjType = 'website';
+		formProjStage = 'briefing';
+		formProjProgress = 15;
+		formProjValue = 450000;
+		formProjStartDate = new Date().toISOString().slice(0, 10);
+		
+		const deliveryDate = new Date();
+		deliveryDate.setDate(deliveryDate.getDate() + 30);
+		formProjDeliveryDate = deliveryDate.toISOString().slice(0, 10);
+		formProjDemoUrl = '';
+		formProjRepoUrl = '';
+		formProjNotes = '';
+		isProjectModalOpen = true;
+	}
+
+	function openEditProject(proj: ClientProject) {
+		editingProjectId = proj.id;
+		formProjName = proj.name;
+		formProjType = proj.type;
+		formProjStage = proj.stage;
+		formProjProgress = proj.progress;
+		formProjValue = proj.estimatedValue;
+		formProjStartDate = proj.startDate || '';
+		formProjDeliveryDate = proj.targetDeliveryDate || '';
+		formProjDemoUrl = proj.demoUrl || '';
+		formProjRepoUrl = proj.repositoryUrl || '';
+		formProjNotes = proj.notes || '';
+		isProjectModalOpen = true;
+	}
+
+	function handleProjectStageSelect(newStage: ProjectStage) {
+		formProjStage = newStage;
+		if (PROJECT_STAGE_CONFIG[newStage]) {
+			formProjProgress = PROJECT_STAGE_CONFIG[newStage].defaultProgress;
+		}
+	}
+
+	function handleQuickAdvanceProjectStage(proj: ClientProject, nextStage: ProjectStage) {
+		if (!lead) return;
+		const nextProgress = PROJECT_STAGE_CONFIG[nextStage]?.defaultProgress ?? proj.progress;
+		crmStore.updateProject(lead.id, proj.id, {
+			stage: nextStage,
+			progress: nextProgress
+		});
+		toast.success('Etapa Atualizada', `Projeto "${proj.name}" avançou para "${PROJECT_STAGE_CONFIG[nextStage].label}".`);
+	}
+
+	function handleSaveProject() {
+		if (!lead) return;
+		if (!formProjName.trim()) {
+			toast.error('Campo Obrigatório', 'Indique o nome/escopo do projeto.');
+			return;
+		}
+
+		if (editingProjectId) {
+			crmStore.updateProject(lead.id, editingProjectId, {
+				name: formProjName.trim(),
+				type: formProjType,
+				stage: formProjStage,
+				progress: Math.min(100, Math.max(0, Number(formProjProgress) || 0)),
+				estimatedValue: Number(formProjValue) || 0,
+				startDate: formProjStartDate || undefined,
+				targetDeliveryDate: formProjDeliveryDate || undefined,
+				demoUrl: formProjDemoUrl.trim() || undefined,
+				repositoryUrl: formProjRepoUrl.trim() || undefined,
+				notes: formProjNotes.trim() || undefined
+			});
+			toast.success('Projeto Atualizado', `Projeto "${formProjName}" guardado.`);
+		} else {
+			crmStore.addProject(lead.id, {
+				name: formProjName.trim(),
+				type: formProjType,
+				stage: formProjStage,
+				progress: Math.min(100, Math.max(0, Number(formProjProgress) || 0)),
+				estimatedValue: Number(formProjValue) || 0,
+				startDate: formProjStartDate || undefined,
+				targetDeliveryDate: formProjDeliveryDate || undefined,
+				demoUrl: formProjDemoUrl.trim() || undefined,
+				repositoryUrl: formProjRepoUrl.trim() || undefined,
+				notes: formProjNotes.trim() || undefined
+			});
+			toast.success('Projeto Criado', `Projeto "${formProjName}" adicionado.`);
+		}
+		isProjectModalOpen = false;
+	}
+
+	function confirmDeleteProj() {
+		if (!lead || !deletingProject) return;
+		crmStore.deleteProject(lead.id, deletingProject.id);
+		toast.info('Projeto Removido', `O projeto "${deletingProject.name}" foi eliminado.`);
+		deletingProject = null;
+	}
+
+	const SUPPORT_TYPE_CONFIG: Record<SupportContractType, { label: string; defaultHours: number; defaultPriceMonthly: number; defaultSla: string }> = {
+		technical_support: {
+			label: 'Assistência Técnica & Helpdesk TI',
+			defaultHours: 10,
+			defaultPriceMonthly: 120000,
+			defaultSla: 'Atendimento presencial em até 4h e suporte remoto prioritário.'
+		},
+		fiscal_consulting: {
+			label: 'Assessoria Fiscal & Faturação AGT',
+			defaultHours: 5,
+			defaultPriceMonthly: 75000,
+			defaultSla: 'Consultoria fiscal contínua, validação SAFT e suporte técnico AGT.'
+		},
+		sysadmin_infra: {
+			label: 'Gestão de Servidores & Redes',
+			defaultHours: 20,
+			defaultPriceMonthly: 250000,
+			defaultSla: 'Monitorização 24/7, backups diários de base de dados e resposta em até 2h.'
+		},
+		custom_retainer: {
+			label: 'Avença / Contrato Sob Medida',
+			defaultHours: 15,
+			defaultPriceMonthly: 150000,
+			defaultSla: 'Horas mensais flexíveis e equipa de suporte dedicada.'
+		}
+	};
+
+	const SUPPORT_STATUS_CONFIG: Record<SupportContractStatus, { label: string; bg: string; text: string; border: string }> = {
+		active: { label: 'Ativo', bg: 'bg-emerald-950/70', text: 'text-emerald-300', border: 'border-emerald-800/80' },
+		paused: { label: 'Pausado', bg: 'bg-amber-950/70', text: 'text-amber-300', border: 'border-amber-800/80' },
+		expired: { label: 'Expirado', bg: 'bg-rose-950/70', text: 'text-rose-300', border: 'border-rose-800/80' },
+		canceled: { label: 'Cancelado', bg: 'bg-zinc-800', text: 'text-zinc-400', border: 'border-zinc-700' }
+	};
+
+	function openAddSupportContract() {
+		editingContractId = null;
+		formContractType = 'technical_support';
+		const preset = SUPPORT_TYPE_CONFIG.technical_support;
+		formContractTitle = preset.label;
+		formContractStatus = 'active';
+		formContractHours = preset.defaultHours;
+		formContractPrice = preset.defaultPriceMonthly;
+		formContractCycle = 'monthly';
+		formContractStart = new Date().toISOString().slice(0, 10);
+		
+		const nextYear = new Date();
+		nextYear.setFullYear(nextYear.getFullYear() + 1);
+		formContractEnd = nextYear.toISOString().slice(0, 10);
+		formContractSla = preset.defaultSla;
+		formContractNotes = '';
+		isContractModalOpen = true;
+	}
+
+	function handleSupportTypeSelect(newType: SupportContractType) {
+		formContractType = newType;
+		const preset = SUPPORT_TYPE_CONFIG[newType];
+		if (preset) {
+			formContractTitle = preset.label;
+			formContractHours = preset.defaultHours;
+			formContractPrice = formContractCycle === 'annual' ? preset.defaultPriceMonthly * 10 : preset.defaultPriceMonthly;
+			formContractSla = preset.defaultSla;
+		}
+	}
+
+	function openEditSupportContract(c: SupportContract) {
+		editingContractId = c.id;
+		formContractTitle = c.title;
+		formContractType = c.type;
+		formContractStatus = c.status;
+		formContractHours = c.monthlyHours || 0;
+		formContractPrice = c.priceKz;
+		formContractCycle = c.billingCycle;
+		formContractStart = c.startDate;
+		formContractEnd = c.endDate || '';
+		formContractSla = c.slaDescription || '';
+		formContractNotes = c.notes || '';
+		isContractModalOpen = true;
+	}
+
+	function handleSaveSupportContract() {
+		if (!lead) return;
+		if (!formContractTitle.trim()) {
+			toast.error('Campo Obrigatório', 'Indique o título do contrato de assistência.');
+			return;
+		}
+
+		if (editingContractId) {
+			crmStore.updateSupportContract(lead.id, editingContractId, {
+				title: formContractTitle.trim(),
+				type: formContractType,
+				status: formContractStatus,
+				monthlyHours: Number(formContractHours) || undefined,
+				priceKz: Number(formContractPrice) || 0,
+				billingCycle: formContractCycle,
+				startDate: formContractStart,
+				endDate: formContractEnd || undefined,
+				slaDescription: formContractSla.trim() || undefined,
+				notes: formContractNotes.trim() || undefined
+			});
+			toast.success('Contrato Atualizado', `Contrato "${formContractTitle}" guardado com sucesso.`);
+		} else {
+			crmStore.addSupportContract(lead.id, {
+				title: formContractTitle.trim(),
+				type: formContractType,
+				status: formContractStatus,
+				monthlyHours: Number(formContractHours) || undefined,
+				priceKz: Number(formContractPrice) || 0,
+				billingCycle: formContractCycle,
+				startDate: formContractStart,
+				endDate: formContractEnd || undefined,
+				slaDescription: formContractSla.trim() || undefined,
+				notes: formContractNotes.trim() || undefined
+			});
+			toast.success('Contrato Registado', `Contrato "${formContractTitle}" associado.`);
+		}
+		isContractModalOpen = false;
+	}
+
+	function openDeleteSupportContract(c: SupportContract) {
+		deletingContract = c;
+	}
+
+	function confirmDeleteSupport() {
+		if (!lead || !deletingContract) return;
+		crmStore.deleteSupportContract(lead.id, deletingContract.id);
+		toast.info('Contrato Removido', `O contrato "${deletingContract.title}" foi eliminado.`);
+		deletingContract = null;
+	}
+
+	function sendSupportContractNotice(c: SupportContract) {
+		if (!lead) return;
+		if (!lead.phone) {
+			toast.error('Sem Telefone', 'O cliente não possui telefone registado para envio WhatsApp.');
+			return;
+		}
+
+		const comp = companyStore.company;
+		const cycleLabels: Record<BillingCycle, string> = {
+			monthly: 'Mensal',
+			quarterly: 'Trimestral',
+			semiannual: 'Semestral',
+			annual: 'Anual',
+			lifetime: 'Vitalício'
+		};
+
+		const bankSection = comp.bankIban
+			? `\n*Coordenadas Bancárias:*\n• *Banco:* ${comp.bankName || 'BAI'}\n• *IBAN:* ${comp.bankIban}\n• *Titular:* ${comp.bankAccountHolder || comp.name}`
+			: '';
+
+		const message = `*Contrato de Assistência Técnica & Suporte — ${comp.name}*\n\nEstimada equipa da *${lead.title}*,\n\nSegue o resumo do vosso contrato de suporte:\n\n• *Serviço:* ${c.title}\n• *Plano de Horas:* ${c.monthlyHours ? `${c.monthlyHours}h / mês` : 'Sob demanda'}\n• *Valor Recorrente:* *${formatKz(c.priceKz)}* (${cycleLabels[c.billingCycle]})\n• *Vigência:* Início em ${c.startDate}${c.endDate ? ` até ${c.endDate}` : ''}${c.slaDescription ? `\n• *SLA Garantido:* ${c.slaDescription}` : ''}${bankSection}\n\nFicamos à inteira disposição para qualquer solicitação técnica da vossa equipa.\n\nAtenciosamente,\n*${comp.name}*\n${comp.phone || ''}`;
+
+		const link = generateWhatsAppLink(lead.phone, message);
+		if (link) {
+			window.open(link, '_blank');
+			toast.success('WhatsApp de Suporte', 'Mensagem do contrato aberta no WhatsApp.');
+		}
+	}
+
 	function isValidEmail(v: string): boolean {
 		return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 	}
@@ -286,18 +862,18 @@
 		aria-label="Fechar painel"
 	></button>
 
-	<!-- Slide-over Drawer Panel -->
+	<!-- Slide-over Drawer Panel (65-70% width by default, expandable to 90%) -->
 	<aside
-		class="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col bg-zinc-950 border-l border-zinc-800 shadow-2xl transition-transform overflow-hidden"
+		class="fixed inset-y-0 right-0 z-50 flex flex-col bg-zinc-950 border-l border-zinc-800 shadow-2xl transition-all duration-300 ease-in-out overflow-hidden {isWideMode ? 'w-full lg:w-[92vw] xl:w-[88vw]' : 'w-full sm:w-[80vw] md:w-[72vw] lg:w-[68vw] xl:w-[62vw] max-w-7xl'}"
 	>
 		<!-- Header -->
 		<div class="flex items-start justify-between border-b border-zinc-800 p-5 bg-zinc-900/60">
-			<div class="space-y-1.5 max-w-lg">
+			<div class="space-y-1.5 max-w-2xl">
 				<div class="flex items-center gap-2">
 					<PriorityBadge priority={lead.priority} size="sm" />
 					<StatusBadge status={lead.status} size="sm" />
 				</div>
-				<h2 class="text-base font-semibold text-zinc-100 leading-tight">{lead.title}</h2>
+				<h2 class="text-lg font-bold text-zinc-100 leading-tight">{lead.title}</h2>
 				<p class="text-xs text-zinc-400">{lead.categoryName} • {lead.city || 'Angola'}</p>
 			</div>
 
@@ -305,17 +881,28 @@
 				<button
 					type="button"
 					onclick={() => proposalsStore.openNewProposal(lead)}
-					class="flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white px-2.5 py-1 text-xs font-semibold text-zinc-950 transition-colors cursor-pointer shadow-sm"
+					class="flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-950 transition-colors cursor-pointer shadow-sm"
 					title="Emitir proposta comercial formal para esta empresa"
 				>
 					<Icon name="file-text" class="w-3.5 h-3.5" />
 					<span>Criar Proposta</span>
 				</button>
 
+				<!-- Toggle Width Button -->
+				<button
+					type="button"
+					onclick={() => isWideMode = !isWideMode}
+					class="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer border border-zinc-800"
+					title={isWideMode ? 'Restaurar largura normal (68%)' : 'Expandir para ecrã panorâmico (90%)'}
+				>
+					<Icon name={isWideMode ? 'minimize' : 'maximize'} class="w-3.5 h-3.5" />
+				</button>
+
 				<button
 					type="button"
 					onclick={() => crmStore.selectLead(null)}
 					class="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+					title="Fechar painel"
 				>
 					<Icon name="close" class="w-4 h-4" />
 				</button>
@@ -395,15 +982,54 @@
 			<button
 				type="button"
 				onclick={() => activeTab = 'whatsapp'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'whatsapp' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'whatsapp' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="whatsapp" class="w-3.5 h-3.5 text-emerald-400" />
-				Abordagem Comercial
+				Abordagem
+			</button>
+			<button
+				type="button"
+				onclick={() => activeTab = 'saas'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'saas' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="tag" class="w-3.5 h-3.5 text-sky-400" />
+				SaaS & Licenças
+				{#if leadSubscriptions.length > 0}
+					<span class="rounded-full bg-sky-950 border border-sky-800/80 px-1.5 py-0.2 text-[10px] font-mono text-sky-300 font-bold">
+						{leadSubscriptions.length}
+					</span>
+				{/if}
+			</button>
+			<button
+				type="button"
+				onclick={() => activeTab = 'projects'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'projects' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="globe" class="w-3.5 h-3.5 text-indigo-400" />
+				Projetos Web/App
+				{#if leadProjects.length > 0}
+					<span class="rounded-full bg-indigo-950 border border-indigo-800/80 px-1.5 py-0.2 text-[10px] font-mono text-indigo-300 font-bold">
+						{leadProjects.length}
+					</span>
+				{/if}
+			</button>
+			<button
+				type="button"
+				onclick={() => activeTab = 'contracts'}
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'contracts' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+			>
+				<Icon name="clock" class="w-3.5 h-3.5 text-amber-400" />
+				Assistência & Contratos
+				{#if leadContracts.length > 0}
+					<span class="rounded-full bg-amber-950 border border-amber-800/80 px-1.5 py-0.2 text-[10px] font-mono text-amber-300 font-bold">
+						{leadContracts.length}
+					</span>
+				{/if}
 			</button>
 			<button
 				type="button"
 				onclick={() => activeTab = 'proposals'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'proposals' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'proposals' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="file-text" class="w-3.5 h-3.5 text-zinc-400" />
 				Propostas ({leadProposals.length})
@@ -411,15 +1037,15 @@
 			<button
 				type="button"
 				onclick={() => activeTab = 'notes'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'notes' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'notes' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="edit" class="w-3.5 h-3.5 text-zinc-400" />
-				Registo de Atividades ({lead.notes.length})
+				Atividades ({lead.notes.length})
 			</button>
 			<button
 				type="button"
 				onclick={() => activeTab = 'details'}
-				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'details' ? 'border-zinc-100 text-zinc-100' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
+				class="flex items-center gap-1.5 border-b-2 py-2.5 px-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer {activeTab === 'details' ? 'border-zinc-100 text-zinc-100 font-semibold' : 'border-transparent text-zinc-400 hover:text-zinc-200'}"
 			>
 				<Icon name="building" class="w-3.5 h-3.5 text-zinc-400" />
 				Dados Cadastrais
@@ -557,7 +1183,464 @@
 					{/if}
 				</div>
 
-			<!-- TAB 2: PROPOSALS -->
+			<!-- TAB: SAAS & LICENSES -->
+			{:else if activeTab === 'saas'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<span class="text-xs font-semibold text-zinc-200">
+								Subscrições & Licenças de Software ({leadSubscriptions.length})
+							</span>
+							<p class="text-[11px] text-zinc-400 mt-0.5">
+								Controlo de licenças Fact Flexi, Amasoft CRM e produtos SaaS por subscrição.
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={openAddSubscription}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm shrink-0"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Registar Licença</span>
+						</button>
+					</div>
+
+					{#if leadSubscriptions.length > 0}
+						<div class="space-y-3">
+							{#each leadSubscriptions as sub (sub.id)}
+								{@const daysInfo = getSubscriptionDaysInfo(sub.renewalDate)}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3 hover:border-zinc-700 transition-colors">
+									<!-- Top Bar: Product & Plan + Status Badge -->
+									<div class="flex items-start justify-between gap-3">
+										<div class="space-y-1">
+											<div class="flex items-center gap-2">
+												<h4 class="text-sm font-bold text-white">{sub.productName}</h4>
+												{#if sub.status === 'active'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-800/80">
+														Ativa
+													</span>
+												{:else if sub.status === 'expiring_soon'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/80">
+														A Expirar
+													</span>
+												{:else if sub.status === 'expired'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-rose-950/70 text-rose-300 border border-rose-800/80">
+														Expirada
+													</span>
+												{:else if sub.status === 'trial'}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-sky-950/70 text-sky-300 border border-sky-800/80">
+														Em Teste (Trial)
+													</span>
+												{:else}
+													<span class="rounded px-2 py-0.5 text-[10px] font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
+														Cancelada
+													</span>
+												{/if}
+											</div>
+											<p class="text-xs text-zinc-300 font-medium">
+												{sub.planName}
+											</p>
+										</div>
+
+										<div class="text-right font-mono shrink-0">
+											<span class="text-sm font-bold text-emerald-400">{formatKz(sub.priceKz)}</span>
+											<p class="text-[10px] text-zinc-500 uppercase tracking-wider">/ {sub.billingCycle}</p>
+										</div>
+									</div>
+
+									<!-- Key Dates & License Info -->
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs rounded-lg bg-zinc-950/60 p-2.5 border border-zinc-800/60">
+										<div class="space-y-0.5">
+											<span class="text-[10px] text-zinc-500">Início da Vigência:</span>
+											<p class="font-mono text-zinc-300">{sub.startDate || '—'}</p>
+										</div>
+										<div class="space-y-0.5">
+											<span class="text-[10px] text-zinc-500">Data de Renovação:</span>
+											<p class="font-mono {daysInfo.isExpired ? 'text-rose-400 font-bold' : daysInfo.isUrgent ? 'text-amber-400 font-bold' : 'text-zinc-200'}">
+												{sub.renewalDate || '—'} 
+												<span class="text-[10px] font-sans font-normal opacity-80">({daysInfo.label})</span>
+											</p>
+										</div>
+
+										{#if sub.licenseKey}
+											<div class="col-span-1 sm:col-span-2 space-y-0.5 pt-1 border-t border-zinc-800/40">
+												<span class="text-[10px] text-zinc-500">Chave / Referência:</span>
+												<code class="block font-mono text-[11px] text-zinc-300 bg-zinc-900 px-2 py-1 rounded border border-zinc-800 select-all">
+													{sub.licenseKey}
+												</code>
+											</div>
+										{/if}
+
+										{#if sub.instanceUrl}
+											<div class="col-span-1 sm:col-span-2 space-y-0.5">
+												<span class="text-[10px] text-zinc-500">Instância / URL de Acesso:</span>
+												<a
+													href={sub.instanceUrl.startsWith('http') ? sub.instanceUrl : `https://${sub.instanceUrl}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="block text-[11px] text-sky-400 hover:underline truncate"
+												>
+													{sub.instanceUrl}
+												</a>
+											</div>
+										{/if}
+
+										{#if sub.notes}
+											<div class="col-span-1 sm:col-span-2 space-y-0.5 text-[11px] text-zinc-400 pt-1 border-t border-zinc-800/40">
+												<span>Obs: {sub.notes}</span>
+											</div>
+										{/if}
+									</div>
+
+									<!-- Action Buttons Footer -->
+									<div class="flex items-center justify-between pt-2 border-t border-zinc-800/80 text-xs">
+										<button
+											type="button"
+											onclick={() => sendSubscriptionRenewalNotice(sub)}
+											class="flex items-center gap-1.5 rounded border border-emerald-800/60 bg-emerald-950/40 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/60 transition-colors cursor-pointer"
+											title="Enviar mensagem de cobrança/renovação de licença via WhatsApp"
+										>
+											<Icon name="whatsapp" class="w-3.5 h-3.5" />
+											<span>Aviso de Renovação</span>
+										</button>
+
+										<div class="flex items-center gap-1">
+											<button
+												type="button"
+												onclick={() => openEditSubscription(sub)}
+												class="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+												title="Editar licença"
+											>
+												<Icon name="edit" class="w-3.5 h-3.5" />
+											</button>
+											<button
+												type="button"
+												onclick={() => deletingSub = sub}
+												class="rounded p-1 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-300 transition-colors cursor-pointer"
+												title="Remover licença"
+											>
+												<Icon name="trash" class="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="tag" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhuma subscrição registada</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Associe licenças ativas do Fact Flexi, Amasoft CRM ou outros produtos SaaS a esta empresa.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={openAddSubscription}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Registar Primeira Licença
+							</button>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB: PROJECTS & CUSTOM DEV -->
+			{:else if activeTab === 'projects'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<span class="text-xs font-semibold text-zinc-200">
+								Projetos Web & Desenvolvimento por Medida ({leadProjects.length})
+							</span>
+							<p class="text-[11px] text-zinc-400 mt-0.5">
+								Acompanhamento de fases, prazos e entregas de Websites, Apps e Sistemas.
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={openAddProject}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm shrink-0"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Novo Projeto</span>
+						</button>
+					</div>
+
+					{#if leadProjects.length > 0}
+						<div class="space-y-3.5">
+							{#each leadProjects as proj (proj.id)}
+								{@const st = PROJECT_STAGE_CONFIG[proj.stage]}
+								{@const typeInfo = PROJECT_TYPE_LABELS[proj.type]}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3.5 hover:border-zinc-700 transition-colors">
+									<!-- Top Bar: Title & Status -->
+									<div class="flex items-start justify-between gap-3">
+										<div class="space-y-1">
+											<div class="flex flex-wrap items-center gap-2">
+												<h4 class="text-sm font-bold text-white">{proj.name}</h4>
+												<span class="rounded px-2 py-0.5 text-[10px] font-semibold {st.bg} {st.text} border {st.border}">
+													{st.label}
+												</span>
+												<span class="rounded bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-400 border border-zinc-700/60">
+													{typeInfo?.label || proj.type}
+												</span>
+											</div>
+											{#if proj.notes}
+												<p class="text-xs text-zinc-400 line-clamp-1">
+													{proj.notes}
+												</p>
+											{/if}
+										</div>
+
+										<div class="text-right font-mono shrink-0">
+											<span class="text-sm font-bold text-emerald-400">
+												{proj.estimatedValue ? formatKz(proj.estimatedValue) : 'Sob Orçamento'}
+											</span>
+											<p class="text-[10px] text-zinc-500 font-sans">Valor Contratado</p>
+										</div>
+									</div>
+
+									<!-- Interactive Stage Progress Tracker -->
+									<div class="space-y-2 rounded-lg bg-zinc-950/70 p-3 border border-zinc-800/70">
+										<div class="flex items-center justify-between text-xs">
+											<span class="text-[11px] font-medium text-zinc-400">Progresso do Desenvolvimento:</span>
+											<span class="font-mono font-bold text-zinc-200">{proj.progress}%</span>
+										</div>
+
+										<!-- Progress Bar -->
+										<div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+											<div
+												class="h-full transition-all duration-500 rounded-full {proj.stage === 'completed' ? 'bg-emerald-500' : proj.progress >= 70 ? 'bg-sky-500' : 'bg-indigo-500'}"
+												style="width: {proj.progress}%;"
+											></div>
+										</div>
+
+										<!-- Stage Steps Flow -->
+										<div class="grid grid-cols-5 gap-1 pt-1.5 text-center">
+											{#each PROJECT_STAGES_LIST as stepStage, idx}
+												{@const isCurrent = proj.stage === stepStage}
+												{@const isPassed = PROJECT_STAGES_LIST.indexOf(proj.stage) >= idx}
+												<button
+													type="button"
+													onclick={() => handleQuickAdvanceProjectStage(proj, stepStage)}
+													class="group/step p-1 rounded transition-colors cursor-pointer text-left sm:text-center {isCurrent ? 'bg-zinc-800/90 border border-zinc-700' : 'hover:bg-zinc-900/60'}"
+													title="Mudar etapa para {PROJECT_STAGE_CONFIG[stepStage].label}"
+												>
+													<div class="w-2 h-2 mx-auto rounded-full mb-1 {isCurrent ? 'bg-sky-400 ring-2 ring-sky-400/30' : isPassed ? 'bg-emerald-400' : 'bg-zinc-700'}"></div>
+													<span class="block text-[9px] font-medium leading-tight truncate {isCurrent ? 'text-white font-bold' : isPassed ? 'text-zinc-300' : 'text-zinc-500'}">
+														{PROJECT_STAGE_CONFIG[stepStage].label.split('. ')[1] || stepStage}
+													</span>
+												</button>
+											{/each}
+										</div>
+									</div>
+
+									<!-- Dates & Links -->
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+										<div class="rounded-lg bg-zinc-950/40 p-2 border border-zinc-800/40 flex items-center justify-between">
+											<span class="text-[10px] text-zinc-500">Início do Projeto:</span>
+											<span class="font-mono text-zinc-300">{proj.startDate || '—'}</span>
+										</div>
+										<div class="rounded-lg bg-zinc-950/40 p-2 border border-zinc-800/40 flex items-center justify-between">
+											<span class="text-[10px] text-zinc-500">Previsão de Entrega:</span>
+											<span class="font-mono font-semibold text-zinc-200">{proj.targetDeliveryDate || 'A definir'}</span>
+										</div>
+
+										{#if proj.demoUrl}
+											<div class="col-span-1 sm:col-span-2 rounded-lg bg-zinc-950/40 p-2 border border-zinc-800/40 flex items-center justify-between">
+												<span class="text-[10px] text-zinc-500">Link de Demonstração / Homologação:</span>
+												<a
+													href={proj.demoUrl.startsWith('http') ? proj.demoUrl : `https://${proj.demoUrl}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="text-[11px] text-sky-400 hover:underline flex items-center gap-1 truncate"
+												>
+													<span>{proj.demoUrl}</span>
+													<Icon name="external" class="w-3 h-3 shrink-0" />
+												</a>
+											</div>
+										{/if}
+									</div>
+
+									<!-- Action Buttons Footer -->
+									<div class="flex items-center justify-end gap-1.5 pt-2 border-t border-zinc-800/80 text-xs">
+										<button
+											type="button"
+											onclick={() => openEditProject(proj)}
+											class="flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+											title="Editar informações do projeto"
+										>
+											<Icon name="edit" class="w-3.5 h-3.5" />
+											<span>Editar</span>
+										</button>
+										<button
+											type="button"
+											onclick={() => deletingProject = proj}
+											class="rounded p-1 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-300 transition-colors cursor-pointer"
+											title="Remover projeto"
+										>
+											<Icon name="trash" class="w-3.5 h-3.5" />
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="globe" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhum projeto em desenvolvimento</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Acompanhe a criação de Websites, Aplicações Móveis e Softwares por medida para este cliente.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={openAddProject}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Criar Primeiro Projeto
+							</button>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB: SUPPORT CONTRACTS & RETAINERS -->
+			{:else if activeTab === 'contracts'}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between">
+						<div>
+							<h4 class="text-xs font-semibold text-zinc-200">
+								Assistência Técnica & Retainers Mensais ({leadContracts.length})
+							</h4>
+							<p class="text-[11px] text-zinc-500">
+								Contratos de suporte contínuo, banco de horas e assessoria técnica recorrente.
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={openAddSupportContract}
+							class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm"
+						>
+							<Icon name="plus" class="w-3.5 h-3.5" />
+							<span>Novo Contrato</span>
+						</button>
+					</div>
+
+					{#if leadContracts.length > 0}
+						<div class="space-y-3">
+							{#each leadContracts as contract (contract.id)}
+								{@const typeInfo = SUPPORT_TYPE_CONFIG[contract.type] || { label: contract.type, icon: 'clock' }}
+								{@const statusInfo = SUPPORT_STATUS_CONFIG[contract.status] || { label: contract.status, bg: 'bg-zinc-800', text: 'text-zinc-300', border: 'border-zinc-700' }}
+								{@const cycleLabel = BILLING_CYCLES.find((c: { id: BillingCycle; label: string }) => c.id === contract.billingCycle)?.label || contract.billingCycle}
+								<div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3 hover:border-zinc-700 transition-colors">
+									<!-- Contract Header -->
+									<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+										<div class="space-y-1">
+											<div class="flex items-center gap-2 flex-wrap">
+												<span class="font-semibold text-xs text-white">{contract.title}</span>
+												<span class="rounded bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+													{typeInfo.label}
+												</span>
+												<span class="rounded px-2 py-0.5 text-[10px] font-semibold border {statusInfo.bg} {statusInfo.text} {statusInfo.border}">
+													{statusInfo.label}
+												</span>
+											</div>
+											<div class="flex items-center gap-3 text-[11px] text-zinc-400">
+												<span>Início: {contract.startDate}</span>
+												{#if contract.endDate}
+													<span>• Vigência até: <strong class="text-zinc-300">{contract.endDate}</strong></span>
+												{/if}
+											</div>
+										</div>
+
+										<div class="text-right shrink-0">
+											<div class="font-mono text-sm font-bold text-emerald-400">
+												{formatKz(contract.priceKz)}
+											</div>
+											<span class="text-[10px] text-zinc-500 font-medium">
+												/ {cycleLabel.toLowerCase()}
+											</span>
+										</div>
+									</div>
+
+									<!-- Retainer details badge -->
+									{#if contract.monthlyHours && contract.monthlyHours > 0}
+										<div class="flex items-center gap-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 px-3 py-1.5 text-xs text-zinc-300">
+											<Icon name="clock" class="w-3.5 h-3.5 text-amber-400" />
+											<span>Banco de Horas: <strong class="text-white font-mono">{contract.monthlyHours}h</strong> / mês de assistência técnica</span>
+										</div>
+									{/if}
+
+									<!-- SLA & Scope Details -->
+									{#if contract.slaDescription}
+										<div class="rounded-lg bg-zinc-950/40 border border-zinc-800/60 p-2.5 text-xs text-zinc-300 space-y-1">
+											<span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Escopo do Suporte & SLA:</span>
+											<p class="text-zinc-300 whitespace-pre-line leading-relaxed">{contract.slaDescription}</p>
+										</div>
+									{/if}
+
+									<!-- Action Buttons -->
+									<div class="flex items-center justify-between pt-2 border-t border-zinc-800/60">
+										<button
+											type="button"
+											onclick={() => sendSupportContractNotice(contract)}
+											class="flex items-center gap-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/60 px-2.5 py-1.2 text-xs font-semibold text-emerald-400 hover:bg-emerald-900/60 transition-colors cursor-pointer"
+										>
+											<Icon name="whatsapp" class="w-3.5 h-3.5" />
+											<span>Enviar Resumo WhatsApp</span>
+										</button>
+
+										<div class="flex items-center gap-1.5">
+											<button
+												type="button"
+												onclick={() => openEditSupportContract(contract)}
+												class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+												title="Editar Contrato"
+											>
+												<Icon name="edit" class="w-3.5 h-3.5" />
+											</button>
+											<button
+												type="button"
+												onclick={() => openDeleteSupportContract(contract)}
+												class="rounded-lg p-1.5 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-400 transition-colors cursor-pointer"
+												title="Eliminar Contrato"
+											>
+												<Icon name="trash" class="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="rounded-xl border border-dashed border-zinc-800 p-8 text-center space-y-3 bg-zinc-950/40">
+							<div class="inline-flex rounded-full bg-zinc-900 p-2.5 text-zinc-500 border border-zinc-800">
+								<Icon name="clock" class="w-5 h-5" />
+							</div>
+							<div class="space-y-1">
+								<h4 class="text-xs font-semibold text-zinc-300">Nenhum contrato de suporte ou retainer</h4>
+								<p class="text-[11px] text-zinc-500 max-w-xs mx-auto">
+									Garanta receita recorrente registando contratos de assistência técnica mensal, banco de horas e assessoria contínua.
+								</p>
+							</div>
+							<button
+								type="button"
+								onclick={openAddSupportContract}
+								class="rounded-lg bg-zinc-100 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+							>
+								Criar Primeiro Contrato de Suporte
+							</button>
+						</div>
+					{/if}
+				</div>
+
+			<!-- TAB: PROPOSALS -->
 			{:else if activeTab === 'proposals'}
 				<div class="space-y-4">
 					<div class="flex items-center justify-between">
@@ -1178,3 +2261,794 @@
 		</div>
 	</aside>
 {/if}
+
+<!-- MODAL: SUBSCRIPTION EDITOR -->
+{#if isSubModalOpen}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Dialog -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-sky-950/60 p-2 text-sky-400 border border-sky-800/60">
+						<Icon name="tag" class="w-4 h-4" />
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-white">
+							{editingSubId ? 'Editar Subscrição SaaS' : 'Registar Nova Licença SaaS'}
+						</h3>
+						<p class="text-[11px] text-zinc-400">
+							{lead?.title}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => isSubModalOpen = false}
+					class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
+
+			<!-- Scrollable Form Body -->
+			<div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+				<!-- Quick Catalog Selector (only for new) -->
+				{#if !editingSubId}
+					<div class="space-y-1.5">
+						<span class="block text-[11px] font-medium text-zinc-400">Selecionar do Catálogo:</span>
+						<div class="grid grid-cols-2 gap-2">
+							{#each saasStore.catalog as catItem}
+								<button
+									type="button"
+									onclick={() => handleProductSelect(catItem.name)}
+									class="text-left rounded-lg border p-2.5 transition-colors cursor-pointer {formSubProduct === catItem.name ? 'border-sky-500 bg-sky-950/30 text-white' : 'border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:bg-zinc-900'}"
+								>
+									<span class="font-semibold block text-xs">{catItem.name}</span>
+									<span class="text-[10px] text-zinc-400 line-clamp-1">{catItem.category}</span>
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Product & Plan Selectors -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<!-- Product Dropdown -->
+					<div class="space-y-1">
+						<label for="sub-product-select" class="block text-[11px] font-medium text-zinc-300">Software / Solução SaaS *</label>
+						<select
+							id="sub-product-select"
+							value={isCustomProduct ? 'custom' : formSubProduct}
+							onchange={(e) => handleProductSelect((e.target as HTMLSelectElement).value)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							{#each saasStore.catalog as catItem}
+								<option value={catItem.name}>{catItem.name} — {catItem.category}</option>
+							{/each}
+							<option value="custom">Outro Software (Personalizado)...</option>
+						</select>
+
+						{#if isCustomProduct}
+							<input
+								type="text"
+								bind:value={formSubProduct}
+								placeholder="Digite o nome do software SaaS..."
+								class="w-full mt-1.5 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+							/>
+						{/if}
+					</div>
+
+					<!-- Plan Dropdown -->
+					<div class="space-y-1">
+						<label for="sub-plan-select" class="block text-[11px] font-medium text-zinc-300">Plano / Modalidade *</label>
+						{#if !isCustomProduct && availablePlansForCurrentProduct.length > 0}
+							<select
+								id="sub-plan-select"
+								value={isCustomPlan ? 'custom' : formSubPlan}
+								onchange={(e) => handlePlanSelect((e.target as HTMLSelectElement).value)}
+								class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+							>
+								{#each availablePlansForCurrentProduct as planItem}
+									<option value={planItem.name}>
+										{planItem.name} ({formatKz(formSubCycle === 'annual' ? planItem.priceAnnualKz : planItem.priceMonthlyKz)})
+									</option>
+								{/each}
+								<option value="custom">Personalizado / Outro Plano...</option>
+							</select>
+						{/if}
+
+						{#if isCustomProduct || isCustomPlan}
+							<input
+								type="text"
+								bind:value={formSubPlan}
+								placeholder="Digite o nome do plano ou versão..."
+								class="w-full mt-1.5 rounded-lg bg-zinc-950 border border-zinc-700 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+							/>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Cycle & Price -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="sub-cycle" class="block text-[11px] font-medium text-zinc-300">Ciclo de Faturação *</label>
+						<select
+							id="sub-cycle"
+							value={formSubCycle}
+							onchange={(e) => handleCycleChange((e.target as HTMLSelectElement).value as BillingCycle)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="annual">Anual (12 meses — Recomendado)</option>
+							<option value="monthly">Mensal (1 mês)</option>
+							<option value="semiannual">Semestral (6 meses)</option>
+							<option value="quarterly">Trimestral (3 meses)</option>
+							<option value="lifetime">Vitalício (Licença Definitiva)</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<div class="flex items-center justify-between">
+							<label for="sub-price" class="block text-[11px] font-medium text-zinc-300">Valor Recorrente (Kz) *</label>
+							{#if currentCatalogProduct && !isCustomPlan}
+								<span class="text-[10px] text-zinc-400 font-mono">Tabela oficial</span>
+							{/if}
+						</div>
+						<input
+							id="sub-price"
+							type="number"
+							bind:value={formSubPrice}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-emerald-400 font-mono font-bold focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Status & Start Date -->
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<div class="space-y-1">
+						<label for="sub-status" class="block text-[11px] font-medium text-zinc-300">Estado da Licença</label>
+						<select
+							id="sub-status"
+							bind:value={formSubStatus}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="active">Ativa</option>
+							<option value="trial">Em Teste (Trial)</option>
+							<option value="expiring_soon">A Expirar</option>
+							<option value="expired">Expirada</option>
+							<option value="canceled">Cancelada</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-start" class="block text-[11px] font-medium text-zinc-300">Data de Início</label>
+						<input
+							id="sub-start"
+							type="date"
+							bind:value={formSubStart}
+							onchange={() => formSubRenewal = calculateRenewalDate(formSubStart, formSubCycle)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-renewal" class="block text-[11px] font-medium text-zinc-300">Próxima Renovação</label>
+						<input
+							id="sub-renewal"
+							type="date"
+							bind:value={formSubRenewal}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- License Key & URL -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="sub-key" class="block text-[11px] font-medium text-zinc-300">Chave de Licença / Código</label>
+						<input
+							id="sub-key"
+							type="text"
+							bind:value={formSubKey}
+							placeholder="Ex: FF-9821A-2026"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 font-mono placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="sub-url" class="block text-[11px] font-medium text-zinc-300">Instância / URL de Acesso</label>
+						<input
+							id="sub-url"
+							type="text"
+							bind:value={formSubUrl}
+							placeholder="Ex: app.factflexi.ao/empresa"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div class="space-y-1">
+					<label for="sub-notes" class="block text-[11px] font-medium text-zinc-300">Observações Internas</label>
+					<textarea
+						id="sub-notes"
+						bind:value={formSubNotes}
+						rows="2"
+						placeholder="Ex: Licença inclui módulo de faturação e gestão de stocks em 2 armazéns..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => isSubModalOpen = false}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={handleSaveSubscription}
+					class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+				>
+					<Icon name="check" class="w-3.5 h-3.5" />
+					<span>{editingSubId ? 'Salvar Alterações' : 'Confirmar Subscrição'}</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: DELETE SUBSCRIPTION CONFIRMATION -->
+{#if deletingSub}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Licença de Software?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação removerá o registo da licença <strong class="text-zinc-200">{deletingSub.productName} ({deletingSub.planName})</strong> associada a esta empresa.
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-2.5 text-xs font-mono space-y-1">
+						<div class="flex justify-between text-zinc-300">
+							<span>Valor:</span>
+							<span class="text-emerald-400 font-bold">{formatKz(deletingSub.priceKz)}</span>
+						</div>
+						<div class="flex justify-between text-zinc-400 text-[11px]">
+							<span>Renovação:</span>
+							<span>{deletingSub.renewalDate}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingSub = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteSub}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Licença</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: PROJECT EDITOR -->
+{#if isProjectModalOpen}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Dialog -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-indigo-950/60 p-2 text-indigo-400 border border-indigo-800/60">
+						<Icon name="globe" class="w-4 h-4" />
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-white">
+							{editingProjectId ? 'Editar Projeto Digital' : 'Novo Projeto por Medida'}
+						</h3>
+						<p class="text-[11px] text-zinc-400">
+							{lead?.title}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => isProjectModalOpen = false}
+					class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
+
+			<!-- Scrollable Form Body -->
+			<div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+				<!-- Project Name -->
+				<div class="space-y-1">
+					<label for="proj-name" class="block text-[11px] font-medium text-zinc-300">Nome / Escopo do Projeto *</label>
+					<input
+						id="proj-name"
+						type="text"
+						bind:value={formProjName}
+						placeholder="Ex: Website Institucional com Catálogo de Produtos..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+					/>
+				</div>
+
+				<!-- Type & Estimated Value -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="proj-type" class="block text-[11px] font-medium text-zinc-300">Tipo de Projeto</label>
+						<select
+							id="proj-type"
+							bind:value={formProjType}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="website">Website Institucional</option>
+							<option value="mobile_app">Aplicação Móvel (App)</option>
+							<option value="custom_system">Sistema / Software por Medida</option>
+							<option value="ecommerce">Loja Virtual / E-commerce</option>
+							<option value="landing_page">Landing Page Comercial</option>
+							<option value="portal">Portal do Cliente / Web App</option>
+							<option value="other">Outro Projeto Digital</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="proj-val" class="block text-[11px] font-medium text-zinc-300">Valor Cotado (Kz)</label>
+						<input
+							id="proj-val"
+							type="number"
+							bind:value={formProjValue}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-emerald-400 font-mono font-bold focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Stage Selector & Progress -->
+				<div class="space-y-2 rounded-lg bg-zinc-900/40 p-3 border border-zinc-800">
+					<div class="flex items-center justify-between">
+						<label for="proj-stage" class="block text-[11px] font-medium text-zinc-300">Etapa do Projeto</label>
+						<span class="font-mono text-xs font-bold text-zinc-200">{formProjProgress}% concluído</span>
+					</div>
+
+					<select
+						id="proj-stage"
+						value={formProjStage}
+						onchange={(e) => handleProjectStageSelect((e.target as HTMLSelectElement).value as ProjectStage)}
+						class="w-full rounded-lg bg-zinc-950 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+					>
+						<option value="briefing">1. Briefing & Levantamento de Requisitos</option>
+						<option value="design_ui">2. Design UI / UX & Protótipo</option>
+						<option value="development">3. Desenvolvimento & Programação</option>
+						<option value="testing">4. Testes & Homologação</option>
+						<option value="completed">5. Concluído & Publicado</option>
+						<option value="on_hold">Em Pausa / Aguarda Feedback</option>
+					</select>
+
+					<!-- Progress Slider -->
+					<div class="pt-2 space-y-1">
+						<input
+							type="range"
+							min="0"
+							max="100"
+							step="5"
+							bind:value={formProjProgress}
+							class="w-full accent-sky-400 cursor-pointer"
+						/>
+					</div>
+				</div>
+
+				<!-- Dates -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="proj-start" class="block text-[11px] font-medium text-zinc-300">Data de Início</label>
+						<input
+							id="proj-start"
+							type="date"
+							bind:value={formProjStartDate}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="proj-delivery" class="block text-[11px] font-medium text-zinc-300">Previsão de Entrega</label>
+						<input
+							id="proj-delivery"
+							type="date"
+							bind:value={formProjDeliveryDate}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- URLs -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="proj-demo" class="block text-[11px] font-medium text-zinc-300">Link de Demonstração / Homologação</label>
+						<input
+							id="proj-demo"
+							type="text"
+							bind:value={formProjDemoUrl}
+							placeholder="Ex: dev.cliente.co.ao"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="proj-repo" class="block text-[11px] font-medium text-zinc-300">Repositório / Código (Opcional)</label>
+						<input
+							id="proj-repo"
+							type="text"
+							bind:value={formProjRepoUrl}
+							placeholder="Ex: github.com/empresa/repo"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div class="space-y-1">
+					<label for="proj-notes" class="block text-[11px] font-medium text-zinc-300">Especificações / Observações</label>
+					<textarea
+						id="proj-notes"
+						bind:value={formProjNotes}
+						rows="2"
+						placeholder="Ex: Integração com gateway de pagamentos Multicaixa Express e área de cliente..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => isProjectModalOpen = false}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={handleSaveProject}
+					class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+				>
+					<Icon name="check" class="w-3.5 h-3.5" />
+					<span>{editingProjectId ? 'Salvar Alterações' : 'Criar Projeto'}</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: DELETE PROJECT CONFIRMATION -->
+{#if deletingProject}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Projeto de Desenvolvimento?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação removerá o registo do projeto <strong class="text-zinc-200">"{deletingProject.name}"</strong> associado a esta empresa.
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-2.5 text-xs font-mono space-y-1">
+						<div class="flex justify-between text-zinc-300">
+							<span>Etapa:</span>
+							<span class="text-zinc-100">{PROJECT_STAGE_CONFIG[deletingProject.stage]?.label || deletingProject.stage}</span>
+						</div>
+						<div class="flex justify-between text-zinc-400 text-[11px]">
+							<span>Valor:</span>
+							<span class="text-emerald-400">{formatKz(deletingProject.estimatedValue)}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingProject = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteProj}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Projeto</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: SUPPORT CONTRACT EDITOR -->
+{#if isContractModalOpen}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Dialog -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-amber-950/60 p-2 text-amber-400 border border-amber-800/60">
+						<Icon name="clock" class="w-4 h-4" />
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-white">
+							{editingContractId ? 'Editar Contrato de Assistência' : 'Novo Contrato de Suporte / Retainer'}
+						</h3>
+						<p class="text-[11px] text-zinc-400">
+							{lead?.title}
+						</p>
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={() => isContractModalOpen = false}
+					class="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+				>
+					<Icon name="close" class="w-4 h-4" />
+				</button>
+			</div>
+
+			<!-- Scrollable Form Body -->
+			<div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+				<!-- Contract Title -->
+				<div class="space-y-1">
+					<label for="contract-title" class="block text-[11px] font-medium text-zinc-300">Título / Objeto do Contrato *</label>
+					<input
+						id="contract-title"
+						type="text"
+						bind:value={formContractTitle}
+						placeholder="Ex: Retainer Mensal de Manutenção e Suporte TI..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+					/>
+				</div>
+
+				<!-- Type & Status -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="contract-type" class="block text-[11px] font-medium text-zinc-300">Tipo de Contrato</label>
+						<select
+							id="contract-type"
+							value={formContractType}
+							onchange={(e) => handleSupportTypeSelect((e.target as HTMLSelectElement).value as SupportContractType)}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="technical_support">Assistência Técnica & Helpdesk TI</option>
+							<option value="fiscal_consulting">Assessoria Fiscal & Faturação AGT</option>
+							<option value="sysadmin_infra">Gestão de Servidores & Redes</option>
+							<option value="custom_retainer">Avença / Contrato Sob Medida</option>
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-status" class="block text-[11px] font-medium text-zinc-300">Estado</label>
+						<select
+							id="contract-status"
+							bind:value={formContractStatus}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							<option value="active">Ativo (Vigente)</option>
+							<option value="paused">Pausado / Suspenso</option>
+							<option value="expired">Expirado</option>
+							<option value="canceled">Cancelado</option>
+						</select>
+					</div>
+				</div>
+
+				<!-- Price, Billing Cycle & Monthly Hours -->
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<div class="space-y-1">
+						<label for="contract-price" class="block text-[11px] font-medium text-zinc-300">Valor do Período (Kz)</label>
+						<input
+							id="contract-price"
+							type="number"
+							bind:value={formContractPrice}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-emerald-400 font-mono font-bold focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-cycle" class="block text-[11px] font-medium text-zinc-300">Ciclo de Cobrança</label>
+						<select
+							id="contract-cycle"
+							bind:value={formContractCycle}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						>
+							{#each BILLING_CYCLES as cycle}
+								<option value={cycle.id}>{cycle.label}</option>
+							{/each}
+						</select>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-hours" class="block text-[11px] font-medium text-zinc-300">Horas / Mês (Opcional)</label>
+						<input
+							id="contract-hours"
+							type="number"
+							bind:value={formContractHours}
+							placeholder="Ex: 10"
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-xs text-zinc-200 font-mono focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- Dates -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="contract-start" class="block text-[11px] font-medium text-zinc-300">Data de Início do Contrato</label>
+						<input
+							id="contract-start"
+							type="date"
+							bind:value={formContractStart}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="contract-end" class="block text-[11px] font-medium text-zinc-300">Data de Término / Validade (Opcional)</label>
+						<input
+							id="contract-end"
+							type="date"
+							bind:value={formContractEnd}
+							class="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-2.5 py-1.5 text-xs text-white focus:border-zinc-600 focus:outline-none"
+						/>
+					</div>
+				</div>
+
+				<!-- SLA & Scope Details -->
+				<div class="space-y-1">
+					<label for="contract-sla" class="block text-[11px] font-medium text-zinc-300">Condições de SLA e Nível de Serviço</label>
+					<textarea
+						id="contract-sla"
+						bind:value={formContractSla}
+						rows="2"
+						placeholder="Ex: Tempo de resposta até 2 horas úteis para chamados críticos, atendimento presencial se necessário..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+
+				<!-- Notes -->
+				<div class="space-y-1">
+					<label for="contract-notes" class="block text-[11px] font-medium text-zinc-300">Observações Internas</label>
+					<textarea
+						id="contract-notes"
+						bind:value={formContractNotes}
+						rows="2"
+						placeholder="Ex: Fatura emitida todo dia 01 com vencimento a 15 dias..."
+						class="w-full rounded-lg bg-zinc-900 border border-zinc-800 p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none resize-none"
+					></textarea>
+				</div>
+			</div>
+
+			<!-- Footer -->
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => isContractModalOpen = false}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={handleSaveSupportContract}
+					class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-white cursor-pointer shadow-sm"
+				>
+					<Icon name="check" class="w-3.5 h-3.5" />
+					<span>{editingContractId ? 'Salvar Alterações' : 'Criar Contrato'}</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- MODAL: DELETE SUPPORT CONTRACT CONFIRMATION -->
+{#if deletingContract}
+	<!-- Static Backdrop -->
+	<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm w-full h-full" aria-hidden="true"></div>
+
+	<!-- Modal Wrapper -->
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+		<div
+			class="pointer-events-auto relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-4"
+		>
+			<div class="flex items-start gap-3">
+				<div class="rounded-xl bg-rose-950/40 p-2.5 text-rose-400 border border-rose-900/40 shrink-0">
+					<Icon name="trash" class="w-5 h-5" />
+				</div>
+				<div class="space-y-1.5 flex-1 min-w-0">
+					<h3 class="text-base font-semibold text-white">Eliminar Contrato de Assistência?</h3>
+					<p class="text-xs text-zinc-400 leading-relaxed">
+						Esta ação removerá o contrato <strong class="text-zinc-200">"{deletingContract.title}"</strong> da conta deste cliente.
+					</p>
+
+					<div class="mt-2 rounded-lg bg-zinc-900/70 border border-zinc-800/80 p-2.5 text-xs font-mono space-y-1">
+						<div class="flex justify-between text-zinc-300">
+							<span>Tipo:</span>
+							<span class="text-zinc-100">{SUPPORT_TYPE_CONFIG[deletingContract.type]?.label || deletingContract.type}</span>
+						</div>
+						<div class="flex justify-between text-zinc-400 text-[11px]">
+							<span>Valor:</span>
+							<span class="text-emerald-400">{formatKz(deletingContract.priceKz)}</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+				<button
+					type="button"
+					onclick={() => deletingContract = null}
+					class="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+				>
+					Cancelar
+				</button>
+				<button
+					type="button"
+					onclick={confirmDeleteSupport}
+					class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-sm"
+				>
+					<Icon name="trash" class="w-3.5 h-3.5" />
+					<span>Eliminar Contrato</span>
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+

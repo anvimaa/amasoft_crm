@@ -32,20 +32,47 @@ export const DEFAULT_TEAM: TeamMember[] = [
 
 export const DEFAULT_TEMPLATES: ApproachTemplate[] = [
 	{
-		id: 'tmpl-web-presenca',
-		title: 'Presença Digital & Website',
-		description: 'Empresas sem website — proposta de desenvolvimento web e SEO',
+		id: 'tmpl-factflexi-pitch',
+		title: 'Fact Flexi — Faturação Certificada AGT',
+		description: 'Apresentação do software de faturação eletrónica Fact Flexi com demonstração',
 		category: 'prospecting',
-		content: `Prezada equipa da *{empresa}*,\n\nCumprimentos da *{minha_empresa}*.\n\nAcompanhamos o posicionamento da vossa empresa no setor de {setor} em {cidade} e identificámos uma excelente oportunidade para fortalecer a vossa presença digital.\n\nDispomos de soluções de desenvolvimento de websites corporativos, catálogo online e captação de clientes adaptadas ao mercado angolano.\n\nTeriam disponibilidade para uma breve reunião informativa de 15 minutos esta semana?\n\nAtenciosamente,\n*{meu_nome}*\n{website}`,
+		content: `Estimada equipa da *{empresa}*,\n\nCumprimentos da *{minha_empresa}*.\n\nSabemos que a conformidade fiscal e a rapidez no atendimento são prioridades para as empresas em {cidade}. Gostaríamos de apresentar o nosso software de faturação eletrónica *Fact Flexi*, certificado pela AGT.\n\n*Principais Vantagens:* \n• Emissão rápida de Faturas, Recibos e Guias certificadas pela AGT\n• Ficheiro SAF-T Angola gerado em 1 clique sem erros\n• Controlo completo de stocks, inventário e fechos de caixa\n• Funciona em computador, POS e telemóvel\n\nPodemos agendar uma breve demonstração prática de 15 minutos esta semana para a vossa equipa conhecer o sistema?\n\nAtenciosamente,\n*{meu_nome}*\n*{minha_empresa}*`,
 		isDefault: true,
 		createdAt: new Date().toISOString()
 	},
 	{
-		id: 'tmpl-erp-gestao',
-		title: 'Software de Gestão & Faturação AGT',
-		description: 'Apresentação de ERP, faturação eletrónica e controlo de stock',
+		id: 'tmpl-web-presenca',
+		title: 'Desenvolvimento de Website & Catálogo',
+		description: 'Empresas sem website — proposta de criação de website institucional e catálogo online',
 		category: 'prospecting',
-		content: `Estimada Direção da *{empresa}*,\n\nEntramos em contacto em representação da *{minha_empresa}*, especialista em software de gestão empresarial e faturação certificada pela AGT.\n\nDispomos de soluções completas para:\n• Faturação eletrónica certificada AGT\n• Gestão integrada de stocks e tesouraria\n• Relatórios executivos em tempo real\n\nPodemos agendar uma demonstração rápida de 15 minutos via Google Meet ou presencialmente em {cidade}?\n\nCom os melhores cumprimentos,\n*{minha_empresa}*`,
+		content: `Prezada Direção da *{empresa}*,\n\nCumprimentos da equipa da *{minha_empresa}*.\n\nAcompanhamos o vosso trabalho no setor de {setor} em {cidade} e identificámos uma excelente oportunidade para posicionar a vossa marca na internet com um website institucional moderno e catálogo de produtos.\n\n*O que desenvolvemos:*\n• Website institucional responsivo e otimizado para telemóveis\n• Catálogo online com botão de pedido direto para o vosso WhatsApp\n• Email corporativo personalizado (ex: info@{empresa}.ao)\n• Otimização para os clientes encontrarem a vossa empresa no Google\n\nTeriam disponibilidade para conversarmos brevemente esta semana sobre como colocar o vosso website no ar?\n\nCom os melhores cumprimentos,\n*{meu_nome}*\n*{minha_empresa}*`,
+		isDefault: true,
+		createdAt: new Date().toISOString()
+	},
+	{
+		id: 'tmpl-custom-app',
+		title: 'Desenvolvimento de Apps & Sistemas por Medida',
+		description: 'Apresentação de serviços de engenharia de software para projetos sob medida',
+		category: 'prospecting',
+		content: `Estimada equipa da *{empresa}*,\n\nA *{minha_empresa}* é uma empresa angolana especializada no desenvolvimento de soluções digitais avançadas e softwares personalizados.\n\n*As nossas áreas de desenvolvimento por medida:*\n• Aplicações Móveis (Android & iOS) para clientes e equipas de campo\n• Portais de Clientes, Extranets e Áreas de Membros\n• Sistemas Web sob medida para automação de processos internos\n• Integração de pagamentos por Multicaixa Express e APIs bancárias\n\nSe a *{empresa}* tem um projeto ou necessidade específica em mente, gostaríamos de agendar uma reunião técnica para fazer o levantamento de requisitos sem qualquer custo.\n\nAtenciosamente,\n*{meu_nome}*\n*{minha_empresa}*`,
+		isDefault: true,
+		createdAt: new Date().toISOString()
+	},
+	{
+		id: 'tmpl-suporte-retainer',
+		title: 'Assistência Técnica & Retainer de TI',
+		description: 'Proposta de contrato mensal de suporte de informática, redes e manutenção',
+		category: 'prospecting',
+		content: `Prezados Senhores da *{empresa}*,\n\nA continuidade do vosso negócio depende de sistemas estáveis, computadores rápidos e redes protegidas.\n\nA *{minha_empresa}* disponibiliza planos mensais de *Assistência Técnica & Retainer TI* dedicados a empresas em {cidade}:\n\n• Suporte técnico preventivo e corretivo (presencial e remoto prioritário)\n• Gestão e configuração de servidores, cópias de segurança (backups) diárias\n• Manutenção de computadores, impressoras e redes locais de escritório\n• Atendimento rápido com SLA garantido por contrato\n\nPodemos enviar uma proposta com plano de horas adequado ao tamanho da vossa estrutura?\n\nCom os melhores cumprimentos,\n*{meu_nome}*\n*{minha_empresa}*`,
+		isDefault: true,
+		createdAt: new Date().toISOString()
+	},
+	{
+		id: 'tmpl-renovacao-saas',
+		title: 'Aviso de Renovação de Licença SaaS',
+		description: 'Notificação de vencimento de licença de software com dados bancários',
+		category: 'followup',
+		content: `*Aviso de Renovação de Subscrição — {minha_empresa}*\n\nEstimada equipa da *{empresa}*,\n\nInformamos que a vossa subscrição de software está próxima do vencimento para renovação do período contratado.\n\nPara garantir a continuidade ininterrupta do serviço, emissão de faturas e suporte técnico, solicitamos a regularização da licença.\n\n*Dados para Pagamento:*\n• *Banco:* {minha_empresa}\n• *Contacto:* {telefone}\n\nApós a transferência, por favor enviem o comprovativo para emissão do respetivo recibo e extensão imediata da licença no sistema.\n\nCom os melhores cumprimentos,\n*{minha_empresa}*`,
 		isDefault: true,
 		createdAt: new Date().toISOString()
 	},
@@ -54,7 +81,7 @@ export const DEFAULT_TEMPLATES: ApproachTemplate[] = [
 		title: 'Seguimento de Proposta Comercial',
 		description: 'Acompanhamento após envio de orçamento/proposta formal',
 		category: 'followup',
-		content: `Olá, estimada equipa da *{empresa}*.\n\nEspero que se encontrem bem.\n\nEntro em contacto para dar seguimento à proposta de soluções tecnológicas enviada pela *{minha_empresa}*. Gostaríamos de saber se tiveram oportunidade de analisar os detalhes ou se necessitam de algum esclarecimento adicional ou ajuste no plano.\n\nEstamos à inteira disposição para apoiar a vossa decisão.\n\nAtenciosamente,\n*{meu_nome}*\n*{minha_empresa}*`,
+		content: `Olá, estimada equipa da *{empresa}*.\n\nEspero que se encontrem bem.\n\nEntro em contacto para dar seguimento à proposta comercial de soluções tecnológicas enviada pela *{minha_empresa}*. Gostaríamos de saber se tiveram oportunidade de analisar os detalhes ou se necessitam de algum esclarecimento adicional ou ajuste no plano.\n\nEstamos à inteira disposição para apoiar a vossa decisão.\n\nAtenciosamente,\n*{meu_nome}*\n*{minha_empresa}*`,
 		isDefault: true,
 		createdAt: new Date().toISOString()
 	},
@@ -88,3 +115,53 @@ export const DEFAULT_TEMPLATES: ApproachTemplate[] = [
 ];
 
 export const DEFAULT_PROPOSALS: CommercialProposal[] = [];
+
+export const DEFAULT_SAAS_CATALOG = [
+	{
+		id: 'prod-fact-flexi',
+		name: 'Fact Flexi',
+		category: 'Faturação Eletrónica & Gestão Comercial',
+		description: 'Software de faturação certificado pela AGT com módulos de vendas, clientes, stock e tesouraria.',
+		defaultPlans: [
+			{
+				name: 'Plano Starter',
+				priceMonthlyKz: 7500,
+				priceAnnualKz: 72000,
+				features: ['1 Posto de Trabalho', 'Faturação Ilimitada', 'Certificação AGT', 'Suporte Standard']
+			},
+			{
+				name: 'Plano Profissional',
+				priceMonthlyKz: 15000,
+				priceAnnualKz: 350000,
+				features: ['Até 3 Postos', 'Gestão de Stocks', 'Faturação e Recibos', 'Relatórios Avançados', 'Suporte Prioritário']
+			},
+			{
+				name: 'Plano Corporativo / Enterprise',
+				priceMonthlyKz: 30000,
+				priceAnnualKz: 288000,
+				features: ['Postos Ilimitados', 'Multi-Armazém', 'Gestão Financeira & Tesouraria', 'Acesso Multi-Utilizador', 'Suporte 24/7']
+			}
+		]
+	},
+	{
+		id: 'prod-amasoft-crm',
+		name: 'Amasoft CRM',
+		category: 'Gestão Comercial & Pipeline de Vendas',
+		description: 'CRM B2B com funil de vendas, gerador de orçamentos, integração WhatsApp e catálogo de soluções.',
+		defaultPlans: [
+			{
+				name: 'Plano Comercial (Até 3 Usuários)',
+				priceMonthlyKz: 25000,
+				priceAnnualKz: 250000,
+				features: ['Até 3 Vendedores', 'Pipeline Visual', 'Exportação PDF Propostas', 'Integração WhatsApp']
+			},
+			{
+				name: 'Plano Empresa (Até 10 Usuários)',
+				priceMonthlyKz: 55000,
+				priceAnnualKz: 550000,
+				features: ['Até 10 Vendedores', 'Múltiplas Linhas de Negócio', 'Gestão de Licenças & Subscrições', 'Métricas MRR/ARR']
+			}
+		]
+	}
+];
+

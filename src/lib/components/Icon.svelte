@@ -44,7 +44,10 @@
 			| 'chevron-left'
 			| 'chevrons-left'
 			| 'chevrons-right'
-			| 'arrow-right';
+			| 'arrow-right'
+			| 'maximize'
+			| 'minimize'
+			| 'bluetooth';
 		class?: string;
 		size?: number;
 	}
@@ -156,5 +159,11 @@
 		<polyline points="13 17 18 12 13 7" /><polyline points="6 17 11 12 6 7" />
 	{:else if name === 'arrow-right'}
 		<path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+	{:else if name === 'maximize'}
+		<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+	{:else if name === 'minimize'}
+		<path d="M4 14h6v6m10-10h-6V4m0 6 7-7M3 21l7-7" />
+	{:else if name === 'bluetooth'}
+		<path d="m7 7 10 10-5 5V2l5 5L7 17" />
 	{/if}
 </svg>

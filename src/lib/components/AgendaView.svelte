@@ -10,6 +10,7 @@
 
 	let quickRescheduleId = $state<string | null>(null);
 	let quickRescheduleDate = $state<string>('');
+	let activeAgendaTab = $state<'followups' | 'renewals'>('followups');
 
 	function formatDate(isoString: string | null): string {
 		if (!isoString) return '—';
@@ -109,37 +110,66 @@
 </script>
 
 <div class="space-y-6 pb-12">
-	<!-- Header -->
+	<!-- Header with Tab Navigation -->
 	<div class="rounded-xl bg-zinc-900/60 border border-zinc-800 p-5">
 		<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
 			<div class="space-y-1">
 				<div class="flex items-center gap-2">
 					<Icon name="calendar" class="w-5 h-5 text-zinc-400" />
-					<span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">A Minha Agenda</span>
+					<span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">A Minha Agenda Operacional</span>
 				</div>
 				<h1 class="text-base sm:text-lg font-semibold text-zinc-100">
-					{crmStore.followUpCounts.dueNow} acompanhamentos pendentes hoje
+					{#if activeAgendaTab === 'followups'}
+						{crmStore.followUpCounts.dueNow} acompanhamentos pendentes para hoje
+					{:else}
+						{crmStore.stats.expiringSoonSubscriptionsCount} renovações de licenças & avenças nos próximos 30 dias
+					{/if}
 				</h1>
 				<p class="text-xs text-zinc-400">
-					{crmStore.followUpCounts.overdue} atrasados, {crmStore.followUpCounts.tomorrow} amanhã, {crmStore.followUpCounts.unscheduled} sem data agendada.
+					{#if activeAgendaTab === 'followups'}
+						{crmStore.followUpCounts.overdue} atrasados, {crmStore.followUpCounts.tomorrow} amanhã, {crmStore.followUpCounts.unscheduled} sem data agendada.
+					{:else}
+						Gestão proativa de renovações de Fact Flexi, sistemas SaaS e contratos de assistência técnica.
+					{/if}
 				</p>
+			</div>
+
+			<!-- Tab switch buttons -->
+			<div class="flex items-center gap-2 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+				<button
+					type="button"
+					onclick={() => activeAgendaTab = 'followups'}
+					class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer {activeAgendaTab === 'followups' ? 'bg-zinc-100 text-zinc-950 font-semibold' : 'text-zinc-400 hover:text-white'}"
+				>
+					<Icon name="calendar" class="w-3.5 h-3.5" />
+					<span>Follow-ups ({crmStore.followUpCounts.dueNow})</span>
+				</button>
+				<button
+					type="button"
+					onclick={() => activeAgendaTab = 'renewals'}
+					class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer {activeAgendaTab === 'renewals' ? 'bg-zinc-100 text-zinc-950 font-semibold' : 'text-zinc-400 hover:text-white'}"
+				>
+					<Icon name="tag" class="w-3.5 h-3.5" />
+					<span>Renovações SaaS ({crmStore.stats.expiringSoonSubscriptionsCount})</span>
+				</button>
 			</div>
 		</div>
 	</div>
 
-	<!-- Sections -->
-	{#each sections as section}
-		{#if section.count > 0 || section.key === 'unscheduled'}
-			<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
-				<div class="flex items-center justify-between mb-4">
-					<div class="flex items-center gap-2">
-						<Icon name={section.icon} class="w-4 h-4 {section.iconColor}" />
-						<h2 class="text-sm font-semibold text-zinc-100">{section.title}</h2>
-						<span class="rounded bg-zinc-800 px-1.5 py-0.2 text-[10px] font-mono text-zinc-400 border border-zinc-700/50">
-							{section.count}
-						</span>
+	<!-- TAB 1: COMMERCIAL FOLLOW-UPS -->
+	{#if activeAgendaTab === 'followups'}
+		{#each sections as section}
+			{#if section.count > 0 || section.key === 'unscheduled'}
+				<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+					<div class="flex items-center justify-between mb-4">
+						<div class="flex items-center gap-2">
+							<Icon name={section.icon} class="w-4 h-4 {section.iconColor}" />
+							<h2 class="text-sm font-semibold text-zinc-100">{section.title}</h2>
+							<span class="rounded bg-zinc-800 px-1.5 py-0.2 text-[10px] font-mono text-zinc-400 border border-zinc-700/50">
+								{section.count}
+							</span>
+						</div>
 					</div>
-				</div>
 
 				{#if section.leads.length === 0}
 					<div class="flex items-center gap-2 py-4 text-center text-zinc-600">
@@ -231,4 +261,79 @@
 			</div>
 		{/if}
 	{/each}
+	{:else if activeAgendaTab === 'renewals'}
+		<!-- TAB 2: SAAS LICENSES & RETAINER RENEWALS -->
+		<div class="space-y-4">
+			<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+				<div class="flex items-center justify-between mb-4">
+					<div>
+						<h2 class="text-sm font-semibold text-zinc-100">Renovações Próximas & Licenças Vencidas</h2>
+						<p class="text-xs text-zinc-400">
+							Subscrições de Fact Flexi, CRM e avenças de suporte técnico com necessidade de renovação
+						</p>
+					</div>
+					<span class="rounded-full bg-sky-950 border border-sky-800/80 px-2.5 py-0.5 text-xs font-mono font-bold text-sky-300">
+						{crmStore.stats.expiringSubscriptionsList.length} licenças
+					</span>
+				</div>
+
+				{#if crmStore.stats.expiringSubscriptionsList.length === 0}
+					<div class="rounded-lg border border-dashed border-zinc-800/80 p-8 text-center text-xs text-zinc-500 space-y-1">
+						<p class="font-semibold text-zinc-400">Nenhuma renovação pendente para os próximos 30 dias</p>
+						<p>Todas as licenças e contratos de clientes estão ativos e em dia.</p>
+					</div>
+				{:else}
+					<div class="divide-y divide-zinc-800/80">
+						{#each crmStore.stats.expiringSubscriptionsList as item (item.subscription.id)}
+							<div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-800/20 px-2 rounded-lg transition-colors">
+								<div class="space-y-1 min-w-0">
+									<div class="flex items-center gap-2 flex-wrap">
+										<button
+											type="button"
+											onclick={() => openDrawer(item.lead)}
+											class="text-xs font-semibold text-white hover:text-sky-300 transition-colors cursor-pointer text-left truncate"
+										>
+											{item.lead.title}
+										</button>
+										<span class="rounded bg-sky-950/70 border border-sky-800/80 px-2 py-0.2 text-[10px] font-semibold text-sky-300">
+											{item.subscription.productName} • {item.subscription.planName}
+										</span>
+										<span class="rounded px-2 py-0.2 text-[10px] font-semibold border {item.daysUntil < 0 ? 'bg-rose-950/70 text-rose-300 border-rose-800/80' : item.daysUntil <= 7 ? 'bg-amber-950/70 text-amber-300 border-amber-800/80' : 'bg-zinc-800 text-zinc-300 border-zinc-700'}">
+											{item.daysUntil < 0 ? `Expirada há ${Math.abs(item.daysUntil)}d` : item.daysUntil === 0 ? 'Expira Hoje' : `Expira em ${item.daysUntil} dias`}
+										</span>
+									</div>
+
+									<div class="text-[11px] text-zinc-400 flex items-center gap-2 flex-wrap">
+										<span>Vencimento: <strong class="text-zinc-200">{item.subscription.renewalDate}</strong></span>
+										<span>·</span>
+										<span>Ciclo: <strong class="text-zinc-300 capitalize">{item.subscription.billingCycle}</strong></span>
+										{#if item.lead.phone}
+											<span>·</span>
+											<span class="font-mono text-zinc-300">{item.lead.phone}</span>
+										{/if}
+									</div>
+								</div>
+
+								<div class="flex items-center gap-3 flex-shrink-0">
+									<div class="text-right">
+										<div class="text-xs font-mono font-bold text-emerald-400">{formatKz(item.subscription.priceKz)}</div>
+										<span class="text-[10px] text-zinc-500">Valor de Renovação</span>
+									</div>
+
+									<button
+										type="button"
+										onclick={() => openDrawer(item.lead)}
+										class="flex items-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-white transition-colors cursor-pointer shadow-sm"
+									>
+										<Icon name="tag" class="w-3.5 h-3.5 text-sky-600" />
+										<span>Gerir & Notificar</span>
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
