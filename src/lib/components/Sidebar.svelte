@@ -4,6 +4,7 @@
 	import { crmStore } from "../stores/crm.svelte";
 	import { companyStore } from "../stores/company.svelte";
 	import { saasStore } from "../stores/saas.svelte";
+	import { authStore } from "../stores/auth.svelte";
 	import { toast } from "../stores/toast.svelte";
 	import { formatKz } from "../utils/format";
 	import Icon from "./Icon.svelte";
@@ -536,6 +537,14 @@
 					class="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
 				>
 					<Icon name="download" class="w-3.5 h-3.5" />
+				</button>
+				<button
+					type="button"
+					onclick={() => authStore.logout()}
+					title="Terminar sessão segura"
+					class="rounded p-1.5 text-zinc-400 hover:bg-rose-950/60 hover:text-rose-400 transition-colors cursor-pointer"
+				>
+					<Icon name="log-out" class="w-3.5 h-3.5" />
 				</button>
 			</div>
 		</div>

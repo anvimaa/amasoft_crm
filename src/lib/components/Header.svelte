@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import { crmStore } from "../stores/crm.svelte";
+	import { authStore } from "../stores/auth.svelte";
 	import Icon from "./Icon.svelte";
 
 	interface Props {
@@ -170,5 +171,26 @@
 			<span class="hidden sm:inline">Adicionar Empresa</span>
 			<span class="sm:hidden">Novo</span>
 		</button>
+
+		<!-- Authenticated User & Logout -->
+		<div class="flex items-center gap-1 pl-1 border-l border-zinc-800/80">
+			<div
+				class="hidden md:flex items-center gap-1.5 rounded-md bg-zinc-900 border border-zinc-800 px-2 py-1 text-xs text-zinc-300 font-mono"
+				title="Utilizador autenticado"
+			>
+				<div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+				<span class="text-[11px]">{authStore.user?.username || 'anvima'}</span>
+			</div>
+
+			<button
+				type="button"
+				onclick={() => authStore.logout()}
+				title="Terminar Sessão"
+				class="flex items-center justify-center rounded-md p-1.5 text-zinc-400 hover:bg-rose-950/50 hover:text-rose-400 transition-colors cursor-pointer"
+				aria-label="Terminar sessão"
+			>
+				<Icon name="log-out" class="w-4 h-4" />
+			</button>
+		</div>
 	</div>
 </header>
