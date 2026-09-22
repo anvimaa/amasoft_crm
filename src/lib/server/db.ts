@@ -31,8 +31,14 @@ export function getLeads(): ClientLead[] {
 		const raw = fs.readFileSync(DB_FILE, 'utf-8');
 		const parsed = JSON.parse(raw);
 		if (Array.isArray(parsed) && parsed.length > 0) {
-			_leadsCache = parsed;
-			return parsed;
+			const now = new Date().toISOString();
+			const normalized: ClientLead[] = parsed.map((lead: ClientLead) => ({
+				...lead,
+				createdAt: lead.createdAt || now,
+				updatedAt: lead.updatedAt || lead.createdAt || now
+			}));
+			_leadsCache = normalized;
+			return normalized;
 		}
 	} catch (e) {
 		console.error('Error reading crm-database.json:', e);
@@ -44,8 +50,14 @@ export function getLeads(): ClientLead[] {
 export function saveLeads(leads: ClientLead[]): boolean {
 	ensureDbExists();
 	try {
-		_leadsCache = leads;
-		fs.writeFileSync(DB_FILE, JSON.stringify(leads, null, 2), 'utf-8');
+		const now = new Date().toISOString();
+		const normalized = leads.map(lead => ({
+			...lead,
+			createdAt: lead.createdAt || now,
+			updatedAt: lead.updatedAt || now
+		}));
+		_leadsCache = normalized;
+		fs.writeFileSync(DB_FILE, JSON.stringify(normalized, null, 2), 'utf-8');
 		return true;
 	} catch (e) {
 		console.error('Error saving crm-database.json:', e);

@@ -140,6 +140,15 @@ bun run preview
 
 ---
 
+## API Pública & Integrações (Fact Flexi)
+
+O Amasoft CRM disponibiliza endpoints para ingestão automática de clientes e faturas:
+- **URL Base**: `https://crm.factflexi.com`
+- **Endpoints**: `POST /api/v1/leads/external` e `POST /api/webhooks/factflexi`
+- **Documentação Completa**: Consulte o arquivo [`API_DOCUMENTATION.md`](file:///home/anvima/projectos/amasoft_crm/API_DOCUMENTATION.md) para detalhes de autenticação, validação Zod e exemplos em cURL, Node.js, PHP e Python.
+
+---
+
 ## Regras e Diretrizes de Design
 
 1. **Zero Emojis**: Todo o sistema utiliza exclusivamente ícones vetoriais SVG (`Icon.svelte`) para garantir um visual corporativo de alto nível.

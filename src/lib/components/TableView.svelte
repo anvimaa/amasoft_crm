@@ -18,6 +18,24 @@
 	let startIndex = $derived(totalFiltered === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1);
 	let endIndex = $derived(Math.min(currentPage * itemsPerPage, totalFiltered));
 
+	function formatRelativeTime(dateStr?: string | null): string {
+		if (!dateStr) return '—';
+		const date = new Date(dateStr);
+		if (isNaN(date.getTime())) return '—';
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / (1000 * 60));
+		const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+		if (diffMins < 1) return 'Agora mesmo';
+		if (diffMins < 60) return `Há ${diffMins} min`;
+		if (diffHours < 24) return `Há ${diffHours}h`;
+		if (diffDays === 1) return 'Ontem';
+		if (diffDays < 30) return `Há ${diffDays} dias`;
+		return date.toLocaleDateString('pt-AO', { day: '2-digit', month: 'short' });
+	}
+
 	// Auto-clamp currentPage if totalPages shrinks due to filters
 	$effect(() => {
 		if (currentPage > totalPages) {
@@ -238,6 +256,8 @@
 					bind:value={crmStore.filters.sortBy}
 					class="w-full rounded-md bg-zinc-950 border border-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:border-zinc-600 focus:outline-none truncate"
 				>
+					<option value="updatedAt">Última Atualização</option>
+					<option value="createdAt">Data de Criação</option>
 					<option value="title">Nome da Empresa</option>
 					<option value="city">Cidade</option>
 					<option value="estimatedValue">Valor Estimado</option>
@@ -260,6 +280,7 @@
 						<th scope="col" class="px-4 py-3">Estágio</th>
 						<th scope="col" class="px-4 py-3">Prioridade</th>
 						<th scope="col" class="px-4 py-3">Valor Estimado</th>
+						<th scope="col" class="px-4 py-3">Atualizado</th>
 						<th scope="col" class="px-4 py-3 text-right">Ação</th>
 					</tr>
 				</thead>
@@ -378,6 +399,18 @@
 								{formatKz(lead.estimatedValue)}
 							</td>
 
+							<!-- Updated Timestamp -->
+							<td class="px-4 py-3 whitespace-nowrap">
+								<div class="text-[11px] text-zinc-300 font-mono">
+									{formatRelativeTime(lead.updatedAt || lead.createdAt)}
+								</div>
+								{#if lead.createdAt && lead.createdAt !== lead.updatedAt}
+									<div class="text-[9px] text-zinc-500 font-mono">
+										Criado: {new Date(lead.createdAt).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit' })}
+									</div>
+								{/if}
+							</td>
+
 							<!-- Actions -->
 							<td class="px-4 py-3 text-right whitespace-nowrap">
 								<button
@@ -391,7 +424,7 @@
 						</tr>
 					{:else}
 						<tr>
-							<td colspan="7" class="px-4 py-12 text-center text-zinc-400">
+							<td colspan="8" class="px-4 py-12 text-center text-zinc-400">
 								<p class="text-sm">Nenhuma empresa encontrada com os filtros selecionados.</p>
 								<button
 									type="button"

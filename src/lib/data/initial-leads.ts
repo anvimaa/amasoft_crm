@@ -48,6 +48,8 @@ export const INITIAL_LEADS: ClientLead[] = (rawData as any[]).map((item, index) 
 		tags: tags,
 		notes: [],
 		lastContactDate: null,
-		nextFollowUpDate: null
+		nextFollowUpDate: null,
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z'
 	};
 });

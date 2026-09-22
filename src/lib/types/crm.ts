@@ -55,6 +55,8 @@ export interface ClientLead {
 	decisionMaker?: string;
 	decisionMakerRole?: string;
 	email?: string;
+	createdAt?: string;
+	updatedAt?: string;
 
 	// Módulos Multi-Negócio & Serviços
 	targetBusinessLines?: BusinessLine[];
@@ -155,7 +157,7 @@ export interface CRMFilterOptions {
 	hasWebsite: 'all' | 'yes' | 'no';
 	hasPhone: 'all' | 'yes' | 'no';
 	businessLine?: BusinessFilterLine;
-	sortBy: 'title' | 'city' | 'status' | 'priority' | 'estimatedValue' | 'lastContactDate';
+	sortBy: 'title' | 'city' | 'status' | 'priority' | 'estimatedValue' | 'lastContactDate' | 'updatedAt' | 'createdAt';
 	sortOrder: 'asc' | 'desc';
 }
 

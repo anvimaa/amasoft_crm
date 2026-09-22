@@ -61,8 +61,8 @@ class CRMState {
 		hasWebsite: 'all',
 		hasPhone: 'all',
 		businessLine: 'all',
-		sortBy: 'title',
-		sortOrder: 'asc'
+		sortBy: 'updatedAt',
+		sortOrder: 'desc'
 	});
 
 	constructor() {
@@ -70,6 +70,7 @@ class CRMState {
 	}
 
 	async init() {
+		const now = new Date().toISOString();
 		if (typeof window !== 'undefined') {
 			// 1. Load from localStorage immediately (instant UI)
 			try {
@@ -77,7 +78,11 @@ class CRMState {
 				if (saved) {
 					const parsed = JSON.parse(saved);
 					if (Array.isArray(parsed) && parsed.length > 0) {
-						this.leads = parsed;
+						this.leads = parsed.map((l: ClientLead) => ({
+							...l,
+							createdAt: l.createdAt || now,
+							updatedAt: l.updatedAt || l.createdAt || now
+						}));
 						this.isLoaded = true;
 					}
 				}
@@ -100,7 +105,11 @@ class CRMState {
 				if (response.ok) {
 					const data = await response.json();
 					if (Array.isArray(data) && data.length > 0) {
-						this.leads = data;
+						this.leads = data.map((l: ClientLead) => ({
+							...l,
+							createdAt: l.createdAt || now,
+							updatedAt: l.updatedAt || l.createdAt || now
+						}));
 						this.isLoaded = true;
 						const newEtag = response.headers.get('ETag') || '';
 						try {
@@ -116,7 +125,11 @@ class CRMState {
 
 		// 3. Fallback to INITIAL_LEADS
 		if (!this.isLoaded) {
-			this.leads = INITIAL_LEADS;
+			this.leads = INITIAL_LEADS.map((l: ClientLead) => ({
+				...l,
+				createdAt: l.createdAt || now,
+				updatedAt: l.updatedAt || l.createdAt || now
+			}));
 			this.isLoaded = true;
 		}
 	}
@@ -224,7 +237,15 @@ class CRMState {
 		// Sorting
 		result.sort((a, b) => {
 			let comparison = 0;
-			if (this.filters.sortBy === 'title') {
+			if (this.filters.sortBy === 'updatedAt') {
+				const timeA = new Date(a.updatedAt || a.createdAt || a.lastContactDate || 0).getTime();
+				const timeB = new Date(b.updatedAt || b.createdAt || b.lastContactDate || 0).getTime();
+				comparison = timeA - timeB;
+			} else if (this.filters.sortBy === 'createdAt') {
+				const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+				const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+				comparison = timeA - timeB;
+			} else if (this.filters.sortBy === 'title') {
 				comparison = a.title.localeCompare(b.title);
 			} else if (this.filters.sortBy === 'city') {
 				comparison = (a.city || '').localeCompare(b.city || '');
@@ -243,6 +264,10 @@ class CRMState {
 					lost: 0
 				};
 				comparison = (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+			} else if (this.filters.sortBy === 'lastContactDate') {
+				const timeA = new Date(a.lastContactDate || 0).getTime();
+				const timeB = new Date(b.lastContactDate || 0).getTime();
+				comparison = timeA - timeB;
 			}
 			return this.filters.sortOrder === 'asc' ? comparison : -comparison;
 		});
@@ -519,8 +544,11 @@ class CRMState {
 	updateStatus(leadId: string, newStatus: LeadStatus) {
 		const leadIndex = this.leads.findIndex(l => l.id === leadId);
 		if (leadIndex !== -1) {
+			const now = new Date().toISOString();
 			this.leads[leadIndex].status = newStatus;
-			this.leads[leadIndex].lastContactDate = new Date().toISOString();
+			this.leads[leadIndex].lastContactDate = now;
+			this.leads[leadIndex].updatedAt = now;
+			if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 			
 			const statusLabels: Record<LeadStatus, string> = {
 				lead: 'Novo Lead',
@@ -533,7 +561,7 @@ class CRMState {
 			this.leads[leadIndex].notes.unshift({
 				id: `note-${Date.now()}`,
 				content: `Estágio alterado para "${statusLabels[newStatus]}".`,
-				createdAt: new Date().toISOString(),
+				createdAt: now,
 				type: 'general'
 			});
 
@@ -547,7 +575,10 @@ class CRMState {
 	updatePriority(leadId: string, priority: LeadPriority) {
 		const leadIndex = this.leads.findIndex(l => l.id === leadId);
 		if (leadIndex !== -1) {
+			const now = new Date().toISOString();
 			this.leads[leadIndex].priority = priority;
+			this.leads[leadIndex].updatedAt = now;
+			if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 			if (this.selectedLead?.id === leadId) {
 				this.selectedLead = { ...this.leads[leadIndex] };
 			}
@@ -562,12 +593,15 @@ class CRMState {
 	scheduleFollowUp(leadId: string, dateISO: string | null, noteContent?: string) {
 		const leadIndex = this.leads.findIndex(l => l.id === leadId);
 		if (leadIndex === -1) return;
+		const now = new Date().toISOString();
 		this.leads[leadIndex].nextFollowUpDate = dateISO && dateISO.trim() ? dateISO : null;
+		this.leads[leadIndex].updatedAt = now;
+		if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 		if (noteContent && noteContent.trim()) {
 			this.leads[leadIndex].notes.unshift({
 				id: `note-${Date.now()}`,
 				content: noteContent.trim(),
-				createdAt: new Date().toISOString(),
+				createdAt: now,
 				type: 'general',
 				nextFollowUpDate: this.leads[leadIndex].nextFollowUpDate
 			});
@@ -581,7 +615,10 @@ class CRMState {
 	completeFollowUp(leadId: string) {
 		const leadIndex = this.leads.findIndex(l => l.id === leadId);
 		if (leadIndex === -1) return;
+		const now = new Date().toISOString();
 		this.leads[leadIndex].nextFollowUpDate = null;
+		this.leads[leadIndex].updatedAt = now;
+		if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
 		}
@@ -607,6 +644,8 @@ class CRMState {
 		};
 		this.leads[leadIndex].notes.unshift(note);
 		this.leads[leadIndex].lastContactDate = now;
+		this.leads[leadIndex].updatedAt = now;
+		if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 		if (opts.nextFollowUp !== undefined) {
 			this.leads[leadIndex].nextFollowUpDate =
 				opts.nextFollowUp && opts.nextFollowUp.trim() ? opts.nextFollowUp : null;
@@ -620,9 +659,14 @@ class CRMState {
 	updateLead(updated: ClientLead) {
 		const leadIndex = this.leads.findIndex(l => l.id === updated.id);
 		if (leadIndex !== -1) {
-			this.leads[leadIndex] = { ...updated };
+			const now = new Date().toISOString();
+			this.leads[leadIndex] = {
+				...updated,
+				createdAt: updated.createdAt || this.leads[leadIndex].createdAt || now,
+				updatedAt: now
+			};
 			if (this.selectedLead?.id === updated.id) {
-				this.selectedLead = { ...updated };
+				this.selectedLead = { ...this.leads[leadIndex] };
 			}
 			this.saveToStorage();
 		}
@@ -630,14 +674,17 @@ class CRMState {
 
 	addLead(newLead: Omit<ClientLead, 'id' | 'notes'>) {
 		const id = `lead-custom-${Date.now()}`;
+		const now = new Date().toISOString();
 		const lead: ClientLead = {
 			...newLead,
 			id,
+			createdAt: newLead.createdAt || now,
+			updatedAt: now,
 			notes: [
 				{
 					id: `note-${Date.now()}`,
 					content: 'Registo criado no CRM Amasoft.',
-					createdAt: new Date().toISOString(),
+					createdAt: now,
 					type: 'general'
 				}
 			]
@@ -669,6 +716,8 @@ class CRMState {
 		};
 		const currentSubs = this.leads[leadIndex].subscriptions || [];
 		this.leads[leadIndex].subscriptions = [newSub, ...currentSubs];
+		this.leads[leadIndex].updatedAt = now;
+		if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 		
 		// Log note in lead history
 		this.leads[leadIndex].notes.unshift({
@@ -691,12 +740,14 @@ class CRMState {
 		const subIndex = subs.findIndex(s => s.id === subId);
 		if (subIndex === -1) return;
 
+		const now = new Date().toISOString();
 		subs[subIndex] = {
 			...subs[subIndex],
 			...updates,
-			updatedAt: new Date().toISOString()
+			updatedAt: now
 		};
 		this.leads[leadIndex].subscriptions = [...subs];
+		this.leads[leadIndex].updatedAt = now;
 
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
@@ -709,6 +760,7 @@ class CRMState {
 		if (leadIndex === -1) return;
 		const subs = this.leads[leadIndex].subscriptions || [];
 		this.leads[leadIndex].subscriptions = subs.filter(s => s.id !== subId);
+		this.leads[leadIndex].updatedAt = new Date().toISOString();
 
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
@@ -729,6 +781,8 @@ class CRMState {
 		};
 		const currentProjects = this.leads[leadIndex].projects || [];
 		this.leads[leadIndex].projects = [newProj, ...currentProjects];
+		this.leads[leadIndex].updatedAt = now;
+		if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 
 		// Log note in lead history
 		this.leads[leadIndex].notes.unshift({
@@ -751,12 +805,14 @@ class CRMState {
 		const projIndex = projs.findIndex(p => p.id === projId);
 		if (projIndex === -1) return;
 
+		const now = new Date().toISOString();
 		projs[projIndex] = {
 			...projs[projIndex],
 			...updates,
-			updatedAt: new Date().toISOString()
+			updatedAt: now
 		};
 		this.leads[leadIndex].projects = [...projs];
+		this.leads[leadIndex].updatedAt = now;
 
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
@@ -769,6 +825,7 @@ class CRMState {
 		if (leadIndex === -1) return;
 		const projs = this.leads[leadIndex].projects || [];
 		this.leads[leadIndex].projects = projs.filter(p => p.id !== projId);
+		this.leads[leadIndex].updatedAt = new Date().toISOString();
 
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
@@ -789,6 +846,8 @@ class CRMState {
 		};
 		const currentContracts = this.leads[leadIndex].supportContracts || [];
 		this.leads[leadIndex].supportContracts = [newContract, ...currentContracts];
+		this.leads[leadIndex].updatedAt = now;
+		if (!this.leads[leadIndex].createdAt) this.leads[leadIndex].createdAt = now;
 
 		// Log note in lead history
 		this.leads[leadIndex].notes.unshift({
@@ -811,12 +870,14 @@ class CRMState {
 		const cIndex = contracts.findIndex(c => c.id === contractId);
 		if (cIndex === -1) return;
 
+		const now = new Date().toISOString();
 		contracts[cIndex] = {
 			...contracts[cIndex],
 			...updates,
-			updatedAt: new Date().toISOString()
+			updatedAt: now
 		};
 		this.leads[leadIndex].supportContracts = [...contracts];
+		this.leads[leadIndex].updatedAt = now;
 
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
@@ -829,6 +890,7 @@ class CRMState {
 		if (leadIndex === -1) return;
 		const contracts = this.leads[leadIndex].supportContracts || [];
 		this.leads[leadIndex].supportContracts = contracts.filter(c => c.id !== contractId);
+		this.leads[leadIndex].updatedAt = new Date().toISOString();
 
 		if (this.selectedLead?.id === leadId) {
 			this.selectedLead = { ...this.leads[leadIndex] };
@@ -1020,7 +1082,9 @@ class CRMState {
 				tags,
 				notes: [],
 				lastContactDate: null,
-				nextFollowUpDate: null
+				nextFollowUpDate: null,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
 			};
 
 			newLeadsToAdd.push(newLead);

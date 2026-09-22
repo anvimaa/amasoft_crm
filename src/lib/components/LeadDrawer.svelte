@@ -875,6 +875,14 @@
 				</div>
 				<h2 class="text-lg font-bold text-zinc-100 leading-tight">{lead.title}</h2>
 				<p class="text-xs text-zinc-400">{lead.categoryName} • {lead.city || 'Angola'}</p>
+				<div class="flex items-center gap-2 text-[10px] text-zinc-500 font-mono pt-0.5">
+					{#if lead.updatedAt}
+						<span>Atualizado: {new Date(lead.updatedAt).toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+					{/if}
+					{#if lead.createdAt}
+						<span>• Criado: {new Date(lead.createdAt).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+					{/if}
+				</div>
 			</div>
 
 			<div class="flex items-center gap-2">

@@ -135,6 +135,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			if (nif && !existing.tags.some((t) => t.startsWith('NIF:'))) existing.tags.push(`NIF: ${nif}`);
 			if (!existing.tags.includes('Fact Flexi')) existing.tags.push('Fact Flexi');
 
+			existing.updatedAt = nowIso;
+			if (!existing.createdAt) existing.createdAt = nowIso;
+			existing.lastContactDate = nowIso;
+
 			// Add note from Fact Flexi
 			existing.notes.unshift({
 				id: `note-${Date.now()}`,
@@ -198,7 +202,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
 			nextFollowUpDate: null,
 			email,
 			decisionMaker,
-			decisionMakerRole
+			decisionMakerRole,
+			createdAt: nowIso,
+			updatedAt: nowIso
 		};
 
 		// Prepend to database
