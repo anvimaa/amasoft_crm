@@ -6,6 +6,8 @@
 		generateRandom11Digits,
 		generateRandomRupe,
 		formatRupe,
+		generateRupeQrCodeDataUrl,
+		SUGGESTED_RUPE_VALUES,
 		fetchGtpRupeTemplate,
 		renderGtpRupeSvg,
 		downloadSvgFile,
@@ -26,18 +28,20 @@
 	let isPdfGenerating = $state<boolean>(false);
 	let isSvgDownloading = $state<boolean>(false);
 	let autoExtenso = $state<boolean>(true);
+	let currentQrDataUrl = $state<string>('');
 
 	onMount(async () => {
 		rawSvgTemplate = await fetchGtpRupeTemplate();
-		updateRenderedSvg();
+		await updateRenderedSvg();
 	});
 
-	function updateRenderedSvg() {
+	async function updateRenderedSvg() {
 		if (autoExtenso) {
 			formData.valorExtenso = valorPorExtensoKwanzas(formData.valorTotal);
 		}
+		currentQrDataUrl = await generateRupeQrCodeDataUrl(formData.rupe);
 		if (rawSvgTemplate) {
-			renderedSvg = renderGtpRupeSvg(rawSvgTemplate, formData);
+			renderedSvg = renderGtpRupeSvg(rawSvgTemplate, formData, currentQrDataUrl);
 		}
 	}
 
@@ -445,6 +449,29 @@
 								oninput={updateRenderedSvg}
 								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 text-sm font-mono text-white focus:border-amber-500 focus:outline-none"
 							/>
+						</div>
+					</div>
+
+					<!-- Valores Sugestivos / Frequentes -->
+					<div>
+						<span class="block text-[11px] font-medium text-zinc-400 mb-1.5">
+							Valores Sugestivos:
+						</span>
+						<div class="flex items-center gap-1.5 flex-wrap">
+							{#each SUGGESTED_RUPE_VALUES as val}
+								<button
+									type="button"
+									onclick={() => {
+										formData.valorTotal = val;
+										handleValorChange();
+									}}
+									class="rounded-md border px-2.5 py-1 text-xs font-mono transition-all cursor-pointer {formData.valorTotal === val
+										? 'bg-amber-950/80 border-amber-500/80 text-amber-300 font-semibold shadow-sm'
+										: 'border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:border-zinc-700 hover:text-white'}"
+								>
+									{val}
+								</button>
+							{/each}
 						</div>
 					</div>
 

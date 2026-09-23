@@ -12,7 +12,7 @@
 		convertImageToMonochrome,
 		BAI_LOGO_BASE64
 	} from '../utils/rupe-receipt';
-	import { generateRandomRupe } from '../utils/gtp-rupe';
+	import { generateRandomRupe, SUGGESTED_RUPE_VALUES } from '../utils/gtp-rupe';
 	import type { RupeReceiptData, PaperWidth } from '../types/receipt';
 	import { toast } from '../stores/toast.svelte';
 	import Icon from './Icon.svelte';
@@ -251,7 +251,7 @@
 								id="valor"
 								type="text"
 								bind:value={formData.valor}
-								placeholder="Ex: 44086,00"
+								placeholder="Ex: 7398,00"
 								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3.5 py-2.5 text-sm font-mono text-white placeholder-zinc-500 focus:border-amber-500 focus:outline-none"
 							/>
 						</div>
@@ -265,6 +265,28 @@
 								bind:value={formData.moeda}
 								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3.5 py-2.5 text-sm font-mono text-white focus:border-amber-500 focus:outline-none"
 							/>
+						</div>
+					</div>
+
+					<!-- Valores Sugestivos -->
+					<div>
+						<span class="block text-[11px] font-medium text-zinc-400 mb-1.5">
+							Valores Sugestivos:
+						</span>
+						<div class="flex items-center gap-1.5 flex-wrap">
+							{#each SUGGESTED_RUPE_VALUES as val}
+								<button
+									type="button"
+									onclick={() => {
+										formData.valor = val;
+									}}
+									class="rounded-md border px-2.5 py-1 text-xs font-mono transition-all cursor-pointer {formData.valor === val
+										? 'bg-amber-950/80 border-amber-500/80 text-amber-300 font-semibold shadow-sm'
+										: 'border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:border-zinc-700 hover:text-white'}"
+								>
+									{val}
+								</button>
+							{/each}
 						</div>
 					</div>
 

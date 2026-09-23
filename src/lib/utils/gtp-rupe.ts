@@ -1,5 +1,6 @@
 import type { GtpRupeData } from '../types/gtp-rupe';
 import { valorPorExtensoKwanzas } from './numero-extenso';
+import QRCode from 'qrcode';
 
 export function generateRandom11Digits(): string {
 	// Gera exatamente 11 dígitos numéricos
@@ -9,6 +10,15 @@ export function generateRandom11Digits(): string {
 }
 
 export const RUPE_FIXED_PREFIX = '6020126020';
+
+export const SUGGESTED_RUPE_VALUES = [
+	'2.122,00',
+	'7.398,00',
+	'14.796,00',
+	'17.600,00',
+	'26.400,00',
+	'44.000,00'
+];
 
 export function generateRandomRupe(): string {
 	// Formato padrão RUPE: 6020126020 (602 012 602 0) fixo + 10 dígitos aleatórios = 20 dígitos no total
@@ -33,6 +43,28 @@ export function formatRupe(rawRupe: string): string {
 		clean.substring(18, 20)
 	].filter(Boolean);
 	return parts.join(' ');
+}
+
+/**
+ * Gera DataURL do QR Code com o RUPE sem espaços
+ */
+export async function generateRupeQrCodeDataUrl(rawRupe: string): Promise<string> {
+	const cleanRupe = (rawRupe || '').replace(/\D/g, '');
+	if (!cleanRupe) return '';
+	try {
+		return await QRCode.toDataURL(cleanRupe, {
+			margin: 1,
+			width: 300,
+			errorCorrectionLevel: 'M',
+			color: {
+				dark: '#000000',
+				light: '#ffffff'
+			}
+		});
+	} catch (e) {
+		console.error('Erro ao gerar QR code do RUPE:', e);
+		return '';
+	}
 }
 
 export function formatAoaCurrency(val: number | string): string {
@@ -134,7 +166,7 @@ export async function fetchGtpRupeTemplate(): Promise<string> {
 /**
  * Injeta dinamicamente os dados no modelo SVG oficial do GTP RUPE
  */
-export function renderGtpRupeSvg(templateSvg: string, data: GtpRupeData): string {
+export function renderGtpRupeSvg(templateSvg: string, data: GtpRupeData, qrDataUrl?: string): string {
 	if (!templateSvg) return '';
 
 	const rupeFormatado = formatRupe(data.rupe);
@@ -253,6 +285,15 @@ export function renderGtpRupeSvg(templateSvg: string, data: GtpRupeData): string
 		/>\s*443298728382\s*<\/tspan>/,
 		`>${data.numeroLiquidacao}</tspan>`
 	);
+
+	// 15. QR Code dinâmico com o RUPE sem espaços NO TOPO (junto ao RUPE em destaque)
+	if (qrDataUrl) {
+		const topQrRegex = /<g class="com\.sun\.star\.drawing\.PolyPolygonShape">\s*<g id="id13">[\s\S]*?(?=<g class="com\.sun\.star\.drawing\.PolyPolygonShape">\s*<g id="id231">)/;
+		svg = svg.replace(
+			topQrRegex,
+			`<g class="Graphic">\n       <g id="topQrCode">\n        <rect class="BoundingBox" stroke="none" fill="none" x="18750" y="3350" width="1050" height="1050"/>\n        <image x="18750" y="3350" width="1050" height="1050" preserveAspectRatio="none" xlink:href="${qrDataUrl}"/>\n       </g>\n      </g>\n      `
+		);
+	}
 
 	return svg;
 }
