@@ -246,10 +246,20 @@ export function renderGtpRupeSvg(templateSvg: string, data: GtpRupeData, qrDataU
 		`>${data.nomeReceita}</tspan>`
 	);
 
-	// 10. 3.3 Valor da Receita & 3.4 Valor Total
+	// 10. 3.3 Valor da Receita & 3.4 Valor Total (Alinhados mesmo no final à direita)
+	const valorReceitaFormatado = formatAoaCurrency(data.valorReceita || data.valorTotal);
+	const valorTotalFormatado = formatAoaCurrency(data.valorTotal);
+
+	// 3.3 Valor da Receita (y=11322)
 	svg = svg.replace(
-		/>\s*7\.398,00\s*<\/tspan>/g,
-		`>${valorPadding}</tspan>`
+		/<tspan class="TextPosition" x="17515" y="11322"><tspan[^>]*>[^<]*7\.398,00<\/tspan><\/tspan>/,
+		`<tspan class="TextPosition" x="19800" y="11322" text-anchor="end"><tspan font-family="Helvetica, sans-serif" font-size="247px" font-weight="700" fill="rgb(0,0,0)" stroke="none" text-anchor="end">${valorReceitaFormatado}</tspan></tspan>`
+	);
+
+	// 3.4 Valor Total (y=12222)
+	svg = svg.replace(
+		/<tspan class="TextPosition" x="17515" y="12222"><tspan[^>]*>[^<]*7\.398,00<\/tspan><\/tspan>/,
+		`<tspan class="TextPosition" x="19800" y="12222" text-anchor="end"><tspan font-family="Helvetica, sans-serif" font-size="247px" font-weight="700" fill="rgb(0,0,0)" stroke="none" text-anchor="end">${valorTotalFormatado}</tspan></tspan>`
 	);
 
 	// 11. 3.5 Valor Total por Extenso
