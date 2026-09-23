@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClientLead, CompanyProfile, TeamMember, SaaSProductCatalogItem } from '../types/crm';
+import type { GtpRupeData } from '../types/gtp-rupe';
 import { INITIAL_LEADS } from '../data/initial-leads';
 import { DEFAULT_COMPANY, DEFAULT_TEAM, DEFAULT_SAAS_CATALOG } from '../data/defaults';
 
@@ -9,6 +10,7 @@ const DB_FILE = path.join(DB_DIR, 'crm-database.json');
 const COMPANY_FILE = path.join(DB_DIR, 'company-profile.json');
 const TEAM_FILE = path.join(DB_DIR, 'team-members.json');
 const SAAS_CATALOG_FILE = path.join(DB_DIR, 'saas-catalog.json');
+const GTP_RUPE_FILE = path.join(DB_DIR, 'gtp-rupe-latest.json');
 
 // In-memory cache — avoids fs.readFileSync on every request
 let _leadsCache: ClientLead[] | null = null;
@@ -169,6 +171,33 @@ export function saveSaaSCatalog(catalog: SaaSProductCatalogItem[]): boolean {
 		return true;
 	} catch (e) {
 		console.error('Error saving saas-catalog.json:', e);
+		return false;
+	}
+}
+
+export function getLatestGtpRupe(): GtpRupeData | null {
+	ensureDbExists();
+	try {
+		if (fs.existsSync(GTP_RUPE_FILE)) {
+			const raw = fs.readFileSync(GTP_RUPE_FILE, 'utf-8');
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed.rupe === 'string') {
+				return parsed;
+			}
+		}
+	} catch (e) {
+		console.error('Error reading gtp-rupe-latest.json:', e);
+	}
+	return null;
+}
+
+export function saveLatestGtpRupe(data: GtpRupeData): boolean {
+	ensureDbExists();
+	try {
+		fs.writeFileSync(GTP_RUPE_FILE, JSON.stringify(data, null, 2), 'utf-8');
+		return true;
+	} catch (e) {
+		console.error('Error saving gtp-rupe-latest.json:', e);
 		return false;
 	}
 }

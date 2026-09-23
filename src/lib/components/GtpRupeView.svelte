@@ -16,7 +16,9 @@
 		getTodayDateTimeStr,
 		getTodayDateStr,
 		getMesAnoReferencia,
-		getVencimentoDateStr
+		getVencimentoDateStr,
+		fetchLatestGtpRupeFromApi,
+		saveLatestGtpRupeToApi
 	} from '../utils/gtp-rupe';
 	import { valorPorExtensoKwanzas } from '../utils/numero-extenso';
 	import { toast } from '../stores/toast.svelte';
@@ -29,11 +31,34 @@
 	let isSvgDownloading = $state<boolean>(false);
 	let autoExtenso = $state<boolean>(true);
 	let currentQrDataUrl = $state<string>('');
+	let isSaving = $state<boolean>(false);
+	let lastSavedTime = $state<string>('');
+	let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	onMount(async () => {
-		rawSvgTemplate = await fetchGtpRupeTemplate();
+		const [template, savedRupe] = await Promise.all([
+			fetchGtpRupeTemplate(),
+			fetchLatestGtpRupeFromApi()
+		]);
+		rawSvgTemplate = template;
+		if (savedRupe && savedRupe.rupe) {
+			formData = savedRupe;
+		}
 		await updateRenderedSvg();
 	});
+
+	function triggerAutoSave() {
+		if (saveTimeout) clearTimeout(saveTimeout);
+		saveTimeout = setTimeout(async () => {
+			isSaving = true;
+			const ok = await saveLatestGtpRupeToApi(formData);
+			isSaving = false;
+			if (ok) {
+				const now = new Date();
+				lastSavedTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+			}
+		}, 300);
+	}
 
 	async function updateRenderedSvg() {
 		if (autoExtenso) {
@@ -43,6 +68,31 @@
 		if (rawSvgTemplate) {
 			renderedSvg = renderGtpRupeSvg(rawSvgTemplate, formData, currentQrDataUrl);
 		}
+		triggerAutoSave();
+	}
+
+	function handleRupeInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const clean = (target.value || '').replace(/\D/g, '').slice(0, 20);
+		formData.rupe = clean;
+		target.value = clean;
+		updateRenderedSvg();
+	}
+
+	function handleNumero11Input(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const clean = (target.value || '').replace(/\D/g, '').slice(0, 11);
+		formData.numeroLiquidacao = clean;
+		target.value = clean;
+		updateRenderedSvg();
+	}
+
+	function handleProtocoloInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const clean = (target.value || '').replace(/\D/g, '').slice(0, 11);
+		formData.protocolo = clean;
+		target.value = clean;
+		updateRenderedSvg();
 	}
 
 	function handleValorChange() {
@@ -190,6 +240,18 @@
 		</div>
 
 		<div class="flex items-center gap-2 flex-wrap">
+			{#if isSaving}
+				<span class="flex items-center gap-1.5 rounded-md bg-zinc-900 border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-400">
+					<Icon name="refresh" class="w-3 h-3 text-sky-400 animate-spin" />
+					<span>A guardar...</span>
+				</span>
+			{:else if lastSavedTime}
+				<span class="flex items-center gap-1.5 rounded-md bg-emerald-950/40 border border-emerald-900/50 px-2.5 py-1 text-[11px] text-emerald-400" title="Guardado no servidor data/gtp-rupe-latest.json">
+					<Icon name="check" class="w-3 h-3 text-emerald-400" />
+					<span>Guardado ({lastSavedTime})</span>
+				</span>
+			{/if}
+
 			<button
 				type="button"
 				onclick={randomizeAll}
@@ -241,17 +303,30 @@
 								<span>Gerar RUPE</span>
 							</button>
 						</div>
-						<input
-							id="rupe"
-							type="text"
-							bind:value={formData.rupe}
-							oninput={updateRenderedSvg}
-							placeholder="Ex: 60201260203073134198"
-							class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 text-sm font-mono text-white placeholder-zinc-500 focus:border-sky-500 focus:outline-none"
-						/>
-						<span class="text-[11px] text-zinc-400 mt-1 block">
-							Formatado: <strong class="text-zinc-200 font-mono">{formatRupe(formData.rupe) || '—'}</strong>
-						</span>
+						<div class="relative">
+							<input
+								id="rupe"
+								type="text"
+								inputmode="numeric"
+								maxlength="20"
+								value={formData.rupe}
+								oninput={handleRupeInput}
+								placeholder="Ex: 60201260203073134198"
+								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 pr-16 text-sm font-mono text-white placeholder-zinc-500 focus:border-sky-500 focus:outline-none"
+							/>
+							<span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono {formData.rupe.length === 20 ? 'text-emerald-400 font-semibold' : 'text-zinc-500'}">
+								{formData.rupe.length}/20
+							</span>
+						</div>
+						<div class="flex items-center justify-between mt-1 text-[11px] text-zinc-400">
+							<span>Formatado: <strong class="text-zinc-200 font-mono">{formatRupe(formData.rupe) || '—'}</strong></span>
+							{#if formData.rupe.length === 20}
+								<span class="text-emerald-400 flex items-center gap-0.5">
+									<Icon name="check" class="w-3 h-3" />
+									<span>20 dígitos completos</span>
+								</span>
+							{/if}
+						</div>
 					</div>
 
 					<!-- 1.1 Número & GPT (Sincronizados) -->
@@ -269,14 +344,21 @@
 								<span>Gerar 11 Dígitos</span>
 							</button>
 						</div>
-						<input
-							id="numeroLiquidacao"
-							type="text"
-							bind:value={formData.numeroLiquidacao}
-							oninput={updateRenderedSvg}
-							placeholder="Ex: 37362232233"
-							class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 text-sm font-mono text-white focus:border-sky-500 focus:outline-none"
-						/>
+						<div class="relative">
+							<input
+								id="numeroLiquidacao"
+								type="text"
+								inputmode="numeric"
+								maxlength="11"
+								value={formData.numeroLiquidacao}
+								oninput={handleNumero11Input}
+								placeholder="Ex: 37362232233"
+								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 pr-16 text-sm font-mono text-white focus:border-sky-500 focus:outline-none"
+							/>
+							<span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono {formData.numeroLiquidacao.length === 11 ? 'text-emerald-400 font-semibold' : 'text-zinc-500'}">
+								{formData.numeroLiquidacao.length}/11
+							</span>
+						</div>
 						<span class="text-[10.5px] text-zinc-400 mt-0.5 block">
 							O Número 1.1 e o identificador GPT no Home Banking são automaticamente iguais.
 						</span>
@@ -528,14 +610,21 @@
 								<span>Gerar Protocolo</span>
 							</button>
 						</div>
-						<input
-							id="protocolo"
-							type="text"
-							bind:value={formData.protocolo}
-							oninput={updateRenderedSvg}
-							placeholder="Ex: 53623232122"
-							class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-mono text-white focus:border-purple-500 focus:outline-none"
-						/>
+						<div class="relative">
+							<input
+								id="protocolo"
+								type="text"
+								inputmode="numeric"
+								maxlength="11"
+								value={formData.protocolo}
+								oninput={handleProtocoloInput}
+								placeholder="Ex: 53623232122"
+								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-1.5 pr-16 text-xs font-mono text-white focus:border-purple-500 focus:outline-none"
+							/>
+							<span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono {formData.protocolo.length === 11 ? 'text-emerald-400 font-semibold' : 'text-zinc-500'}">
+								{formData.protocolo.length}/11
+							</span>
+						</div>
 					</div>
 
 					<div>

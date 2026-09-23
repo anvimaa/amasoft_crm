@@ -163,6 +163,34 @@ export async function fetchGtpRupeTemplate(): Promise<string> {
 	}
 }
 
+export async function fetchLatestGtpRupeFromApi(): Promise<GtpRupeData | null> {
+	try {
+		const res = await fetch('/api/gtp-rupe');
+		if (!res.ok) return null;
+		const data = await res.json();
+		if (data && typeof data.rupe === 'string') {
+			return data;
+		}
+	} catch (e) {
+		console.error('Erro ao carregar último RUPE da API:', e);
+	}
+	return null;
+}
+
+export async function saveLatestGtpRupeToApi(data: GtpRupeData): Promise<boolean> {
+	try {
+		const res = await fetch('/api/gtp-rupe', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		});
+		return res.ok;
+	} catch (e) {
+		console.error('Erro ao guardar RUPE na API:', e);
+		return false;
+	}
+}
+
 /**
  * Injeta dinamicamente os dados no modelo SVG oficial do GTP RUPE
  */

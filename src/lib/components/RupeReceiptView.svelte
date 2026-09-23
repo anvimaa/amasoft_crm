@@ -12,7 +12,7 @@
 		convertImageToMonochrome,
 		BAI_LOGO_BASE64
 	} from '../utils/rupe-receipt';
-	import { generateRandomRupe, SUGGESTED_RUPE_VALUES } from '../utils/gtp-rupe';
+	import { generateRandomRupe, SUGGESTED_RUPE_VALUES, fetchLatestGtpRupeFromApi, formatRupe } from '../utils/gtp-rupe';
 	import type { RupeReceiptData, PaperWidth } from '../types/receipt';
 	import { toast } from '../stores/toast.svelte';
 	import Icon from './Icon.svelte';
@@ -24,21 +24,62 @@
 	let isBluetoothPrinting = $state<boolean>(false);
 	let isSerialPrinting = $state<boolean>(false);
 	let showAdvancedTpa = $state<boolean>(false);
+	let isSyncingWithGuia = $state<boolean>(false);
+	let syncedFromGuia = $state<boolean>(false);
 
 	let formData = $state<RupeReceiptData>(createDefaultRupeData());
 
-	onMount(() => {
+	async function syncFromLatestGuia(silent: boolean = false) {
+		isSyncingWithGuia = true;
+		try {
+			const latestGtp = await fetchLatestGtpRupeFromApi();
+			if (latestGtp && latestGtp.rupe) {
+				const cleanRupe = (latestGtp.rupe || '').replace(/\D/g, '');
+				if (cleanRupe) {
+					formData.rupe = cleanRupe;
+				}
+				if (latestGtp.valorTotal) {
+					formData.valor = latestGtp.valorTotal;
+				}
+				if (latestGtp.nif) {
+					formData.nif = latestGtp.nif;
+				}
+				syncedFromGuia = true;
+				if (!silent) {
+					toast.success('Sincronizado com a Guia', `RUPE ${formatRupe(cleanRupe)} e valor de ${latestGtp.valorTotal} Kz carregados.`);
+				}
+			} else if (!silent) {
+				toast.info('Sem Dados da Guia', 'Nenhuma Guia RUPE salva recentemente.');
+			}
+		} catch (e) {
+			console.error('Erro ao sincronizar com última Guia:', e);
+		} finally {
+			isSyncingWithGuia = false;
+		}
+	}
+
+	onMount(async () => {
 		// Set live exact timestamp at the moment of opening the RUPE tab
 		formData.dataHora = getRupeCurrentDateTime();
 
 		// Pre-warm the ESC/POS monochrome raster bitmap and PDF logo in memory
 		convertImageToEscPosRaster(BAI_LOGO_BASE64, 280, 384).catch(() => {});
 		convertImageToMonochrome(BAI_LOGO_BASE64).catch(() => {});
+
+		// Automatically sync with the latest Nota de Liquidação (GTP RUPE)
+		await syncFromLatestGuia(true);
 	});
 
 	function setCurrentDateTime() {
 		formData.dataHora = getRupeCurrentDateTime();
 		toast.info('Data Atualizada', 'Data e hora definidas para o momento atual.');
+	}
+
+	function handleRupeInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const clean = (target.value || '').replace(/\D/g, '').slice(0, 20);
+		formData.rupe = clean;
+		target.value = clean;
 	}
 
 	function resetRupeForm() {
@@ -186,13 +227,31 @@
 		</div>
 
 		<div class="flex items-center gap-2 flex-wrap">
+			{#if syncedFromGuia}
+				<span class="flex items-center gap-1.5 rounded-md bg-amber-950/40 border border-amber-900/50 px-2.5 py-1 text-[11px] text-amber-300" title="Dados obtidos da última Guia RUPE A4 gerada">
+					<Icon name="check" class="w-3 h-3 text-amber-400" />
+					<span>Sincronizado da Guia A4</span>
+				</span>
+			{/if}
+
+			<button
+				type="button"
+				onclick={() => syncFromLatestGuia(false)}
+				disabled={isSyncingWithGuia}
+				class="rounded-lg border border-sky-800/70 bg-sky-950/40 px-3 py-1.5 text-xs font-medium text-sky-200 hover:text-white hover:bg-sky-900/60 transition-colors cursor-pointer disabled:opacity-50"
+				title="Atualizar talão com os dados da última Guia de Liquidação RUPE salva"
+			>
+				<Icon name="refresh" class="w-3.5 h-3.5 inline mr-1 text-sky-400 {isSyncingWithGuia ? 'animate-spin' : ''}" />
+				<span>Importar da Guia RUPE</span>
+			</button>
+
 			<button
 				type="button"
 				onclick={resetRupeForm}
 				class="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
 			>
 				<Icon name="refresh" class="w-3.5 h-3.5 inline mr-1 text-zinc-400" />
-				<span>Restaurar Exemplo</span>
+				<span>Restaurar Padrão</span>
 			</button>
 		</div>
 	</div>
@@ -229,16 +288,30 @@
 								<span>Gerar RUPE</span>
 							</button>
 						</div>
-						<input
-							id="rupe"
-							type="text"
-							bind:value={formData.rupe}
-							placeholder="Ex: 60201260200438206869"
-							class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3.5 py-2.5 text-sm font-mono text-white placeholder-zinc-500 focus:border-amber-500 focus:outline-none"
-						/>
-						<span class="text-[11px] text-zinc-400 mt-0.5 block">
-							Referência Única de Pagamento ao Estado emitida pelo Portal das Finanças.
-						</span>
+						<div class="relative">
+							<input
+								id="rupe"
+								type="text"
+								inputmode="numeric"
+								maxlength="20"
+								value={formData.rupe}
+								oninput={handleRupeInput}
+								placeholder="Ex: 60201260200438206869"
+								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3.5 py-2.5 pr-16 text-sm font-mono text-white placeholder-zinc-500 focus:border-amber-500 focus:outline-none"
+							/>
+							<span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-mono {formData.rupe.length === 20 ? 'text-amber-400 font-semibold' : 'text-zinc-500'}">
+								{formData.rupe.length}/20
+							</span>
+						</div>
+						<div class="flex items-center justify-between mt-0.5 text-[11px] text-zinc-400">
+							<span>Formatado: <strong class="text-zinc-200 font-mono">{formatRupe(formData.rupe) || '—'}</strong></span>
+							{#if formData.rupe.length === 20}
+								<span class="text-amber-400 flex items-center gap-0.5">
+									<Icon name="check" class="w-3 h-3" />
+									<span>20 dígitos completos</span>
+								</span>
+							{/if}
+						</div>
 					</div>
 
 					<!-- Valor / Montante & Moeda -->
