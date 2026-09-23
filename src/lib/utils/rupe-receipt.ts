@@ -21,10 +21,10 @@ export function createDefaultRupeData(): RupeReceiptData {
 		entidadeLinha2: 'FINANÇAS',
 		centralPagamento1: 'CENTRAL D PAG ESTADO',
 		centralPagamento2: 'CENTRAL D PAG ESTADO',
-		nif: '000005000393533',
+		nif: '5000393533',
 		identTpa: '00313911',
 		dataHora: getRupeCurrentDateTime(),
-		periodoTransacao: 'Per: 574 Tr: 076 Mg076',
+		periodoTransacao: 'Per: 274 Tr: 076 Mg076',
 		tc: '30462475C6FE7C64',
 		aid: 'A0000006900200',
 		tipoCartao: 'MCX DEBIT',
@@ -59,60 +59,60 @@ function calculateRupeHeight(
 	margin: number
 ): number {
 	const tempDoc = new jsPDF({ unit: 'mm' });
-	tempDoc.setFont('courier', 'normal');
+	tempDoc.setFont('helvetica', 'normal');
 	const contentWidth = pageWidth - margin * 2;
-	const lineHeight = 3.8;
+	const lineHeight = 4.6;
 
 	let estimatedY = 8;
 
-	const countLines = (text: string, fontSize = 8.5) => {
+	const countLines = (text: string, fontSize = 10.5) => {
 		tempDoc.setFontSize(fontSize);
 		const lines: string[] = tempDoc.splitTextToSize(text || ' ', contentWidth);
 		return lines.length * lineHeight;
 	};
 
-	// Logo + Bank Slogan space
-	estimatedY += 16;
-	estimatedY += countLines(data.sloganBanco);
-	estimatedY += 4;
+	// Logo + space
+	estimatedY += 18;
 
-	// Entidade
-	estimatedY += countLines(data.entidadeLinha1, 8.5);
-	estimatedY += countLines(data.entidadeLinha2, 8.5);
-	estimatedY += 2;
+	// Entidade (Ministério das Finanças)
+	estimatedY += countLines(data.entidadeLinha1, 10.5);
+	estimatedY += countLines(data.entidadeLinha2, 10.5);
+	estimatedY += 3;
 
 	// System & TPA Info
-	estimatedY += countLines(data.centralPagamento1, 8.5);
-	estimatedY += countLines(data.centralPagamento2, 8.5);
-	estimatedY += countLines(`NIF: ${data.nif}`, 8.5);
-	estimatedY += countLines(`Ident. TPA: ${data.identTpa}`, 8.5);
-	estimatedY += countLines(data.dataHora, 8.5);
-	estimatedY += countLines(data.periodoTransacao, 8.5);
-	estimatedY += countLines(`TC: ${data.tc}`, 8.5);
-	estimatedY += countLines(data.aid, 8.5);
-	estimatedY += countLines(data.tipoCartao, 8.5);
-	estimatedY += countLines(`Id.Estab.:${data.idEstabelecimento}`, 8.5);
-	estimatedY += countLines(data.tipoOperacao, 8.5);
+	estimatedY += countLines(data.centralPagamento1, 10);
+	estimatedY += countLines(data.centralPagamento2, 10);
+	estimatedY += countLines(`NIF: ${data.nif}`, 10);
+	estimatedY += countLines(`Ident. TPA: ${data.identTpa}`, 10);
+	estimatedY += countLines(data.dataHora, 10);
+	estimatedY += countLines(data.periodoTransacao, 10);
+	estimatedY += countLines(`TC: ${data.tc}`, 10);
+	estimatedY += countLines(data.aid, 10);
+	estimatedY += countLines(data.tipoCartao, 10);
+	estimatedY += countLines(`Id.Estab.:${data.idEstabelecimento}`, 10);
+	estimatedY += 3;
+	estimatedY += countLines(data.tipoOperacao, 10.5);
 
 	// RUPE block
-	estimatedY += 5;
-	estimatedY += countLines('RUPE:', 8.5);
+	estimatedY += 6;
+	estimatedY += countLines('RUPE', 11);
 	estimatedY += 2;
-	estimatedY += countLines(data.rupe, 8.5);
+	estimatedY += countLines(data.rupe, 10.5);
 
 	// Montante block
-	estimatedY += 4;
-	estimatedY += countLines('Montante:', 8.5);
+	estimatedY += 5;
+	estimatedY += countLines('Montante:', 10.5);
 	estimatedY += 2;
-	estimatedY += countLines(`${data.valor}${data.moeda}`, 8.5);
+	estimatedY += countLines(` ${data.valor}  ${data.moeda}`, 11);
 
 	// Footer
-	estimatedY += 6;
-	estimatedY += countLines(data.tipoCopia, 8.5);
-	estimatedY += countLines(data.rodape, 8.5);
-	estimatedY += 8;
+	estimatedY += 7;
+	estimatedY += countLines(data.tipoCopia, 10.5);
+	estimatedY += 2;
+	estimatedY += countLines(data.rodape, 10.5);
+	estimatedY += 10;
 
-	return Math.max(estimatedY, 120);
+	return Math.max(estimatedY, 145);
 }
 
 export { BAI_LOGO_BASE64 } from './bai-logo-base64';
@@ -205,7 +205,7 @@ export async function gerarRupeTalaoTermico(
 	options: ThermalReceiptOptions = {}
 ): Promise<jsPDF> {
 	const pageWidth = options.paperWidth || 58;
-	const margin = 4;
+	const margin = 3.5;
 	const contentWidth = pageWidth - margin * 2;
 	const centerX = pageWidth / 2;
 
@@ -220,16 +220,16 @@ export async function gerarRupeTalaoTermico(
 		format: [pageWidth, pageHeight]
 	});
 
-	let y = 8;
-	const lineHeight = 3.8;
+	let y = 7;
+	const lineHeight = 4.4;
 
 	const printText = (
 		text: string,
 		align: 'left' | 'center' = 'left',
-		fontSize = 8.5,
+		fontSize = 10,
 		isBold = false
 	) => {
-		doc.setFont('courier', isBold ? 'bold' : 'normal');
+		doc.setFont('helvetica', isBold ? 'bold' : 'normal');
 		doc.setFontSize(fontSize);
 		const lines: string[] = doc.splitTextToSize(text || '', contentWidth);
 
@@ -243,52 +243,55 @@ export async function gerarRupeTalaoTermico(
 	// 1. BAI Official Logo from Image URL
 	const logoDataUrl = await getBaiLogoDataUrl();
 	if (logoDataUrl) {
-		const logoWidth = 32;
-		const logoHeight = 11;
+		const logoWidth = 34;
+		const logoHeight = 12;
 		doc.addImage(logoDataUrl, 'JPEG', (pageWidth - logoWidth) / 2, y, logoWidth, logoHeight);
 		y += logoHeight + 4;
 	} else {
-		doc.setFont('courier', 'normal');
-		doc.setFontSize(10);
+		doc.setFont('helvetica', 'bold');
+		doc.setFontSize(12);
 		doc.text('BAI', centerX, y + 5, { align: 'center' });
 		y += 10;
 	}
 
-	// 2. Ministério das Finanças Header
-	printText(data.entidadeLinha1, 'center', 8.5, false);
-	printText(data.entidadeLinha2, 'center', 8.5, false);
-	y += 1;
+	// 2. Ministério das Finanças Header (Alinhado à Esquerda conforme o talão real)
+	printText(data.entidadeLinha1, 'left', 10.5, false);
+	printText(data.entidadeLinha2, 'left', 10.5, false);
+	y += 0.5;
 
-	// 3. TPA Transaction & Central de Pagamento details
-	printText(data.centralPagamento1, 'left', 8.5, false);
-	printText(data.centralPagamento2, 'left', 8.5, false);
-	printText(`NIF: ${data.nif}`, 'left', 8.5, false);
-	printText(`Ident. TPA: ${data.identTpa}`, 'left', 8.5, false);
-	printText(data.dataHora, 'left', 8.5, false);
-	printText(data.periodoTransacao, 'left', 8.5, false);
-	printText(`TC: ${data.tc}`, 'left', 8.5, false);
-	printText(data.aid, 'left', 8.5, false);
-
-	printText(data.tipoCartao, 'center', 8.5, false);
-	printText(`Id.Estab.:${data.idEstabelecimento}`, 'left', 8.5, false);
-	printText(data.tipoOperacao, 'left', 8.5, false);
-
-	// 4. RUPE Block
-	y += 3;
-	printText('RUPE:', 'center', 8.5, false);
+	// 3. TPA Transaction & Central de Pagamento details (Alinhado à Esquerda)
+	printText(data.centralPagamento1, 'left', 10, false);
+	printText(data.centralPagamento2, 'left', 10, false);
+	printText(`NIF: ${data.nif}`, 'left', 10, false);
+	printText(`Ident. TPA: ${data.identTpa}`, 'left', 10, false);
+	printText(data.dataHora, 'left', 10, false);
+	printText(data.periodoTransacao, 'left', 10, false);
+	printText(`TC: ${data.tc}`, 'left', 10, false);
+	printText(data.aid, 'left', 10, false);
+	printText(data.tipoCartao, 'left', 10, false);
+	printText(`Id.Estab.:${data.idEstabelecimento}`, 'left', 10, false);
+	
+	// Tipo Operação
 	y += 1.5;
-	printText(data.rupe, 'left', 8.5, false);
+	printText(data.tipoOperacao, 'left', 10.5, false);
+
+	// 4. RUPE Block (Centralizado conforme talão real)
+	y += 3;
+	printText('RUPE', 'center', 11, false);
+	y += 1;
+	printText(data.rupe, 'center', 10.5, false);
 
 	// 5. Montante Block
-	y += 2.5;
-	printText('Montante:', 'left', 8.5, false);
-	y += 1.5;
-	printText(`${data.valor}${data.moeda}`, 'left', 8.5, false);
+	y += 3;
+	printText('Montante:', 'left', 10.5, false);
+	y += 1;
+	printText(` ${data.valor}  ${data.moeda}`, 'left', 11, false);
 
-	// 6. Footer Copia & Codigo QR
-	y += 4;
-	printText(data.tipoCopia, 'center', 8.5, false);
-	printText(data.rodape, 'center', 8.5, false);
+	// 6. Footer Copia & Codigo QR (Centralizado)
+	y += 4.5;
+	printText(data.tipoCopia, 'center', 10.5, false);
+	y += 1;
+	printText(data.rodape, 'center', 10.5, false);
 
 	return doc;
 }
@@ -490,13 +493,12 @@ export function buildRupeBixolonEscPosPayload(
 		addBytes([0x1b, 0x64, 0x01]);
 	}
 
-	// --- 2. MINISTERIO DAS FINANCAS ---
-	addBytes([0x1b, 0x61, 0x01]); // Centralizar
+	// --- 2. MINISTERIO DAS FINANCAS (Alinhado à Esquerda) ---
+	addBytes([0x1b, 0x61, 0x00]); // Alinhar à Esquerda
 	addText(`${data.entidadeLinha1}\n`);
 	addText(`${data.entidadeLinha2}\n`);
 
-	// --- 3. METADADOS DO TPA / PAGAMENTO ---
-	addBytes([0x1b, 0x61, 0x00]); // Alinhar à Esquerda
+	// --- 3. METADADOS DO TPA / PAGAMENTO (Alinhado à Esquerda) ---
 	addText(`${data.centralPagamento1}\n`);
 	addText(`${data.centralPagamento2}\n`);
 	addText(`NIF: ${data.nif}\n`);
@@ -505,28 +507,23 @@ export function buildRupeBixolonEscPosPayload(
 	addText(`${data.periodoTransacao}\n`);
 	addText(`TC: ${data.tc}\n`);
 	addText(`${data.aid}\n`);
-
-	// Tipo Cartão centralizado
-	addBytes([0x1b, 0x61, 0x01]);
 	addText(`${data.tipoCartao}\n`);
-	addBytes([0x1b, 0x61, 0x00]);
-
-	addText(`Id.Estab.:${data.idEstabelecimento}\n`);
+	addText(`Id.Estab.:${data.idEstabelecimento}\n\n`);
 	addText(`${data.tipoOperacao}\n\n`);
 
-	// --- 4. RUPE ---
+	// --- 4. RUPE (Centralizado) ---
 	addBytes([0x1b, 0x61, 0x01]); // Centralizar
-	addText('RUPE:\n\n');
-	addBytes([0x1b, 0x61, 0x00]); // Alinhar à Esquerda
+	addText('RUPE\n\n');
 	addText(`${data.rupe}\n\n`);
 
-	// --- 5. MONTANTE ---
+	// --- 5. MONTANTE (Alinhado à Esquerda) ---
+	addBytes([0x1b, 0x61, 0x00]); // Alinhar à Esquerda
 	addText('Montante:\n\n');
-	addText(`${data.valor}${data.moeda}\n\n`);
+	addText(` ${data.valor}  ${data.moeda}\n\n\n`);
 
-	// --- 6. FOOTER ---
+	// --- 6. FOOTER (Centralizado) ---
 	addBytes([0x1b, 0x61, 0x01]); // Centralizar
-	addText(`${data.tipoCopia}\n`);
+	addText(`${data.tipoCopia}\n\n`);
 	addText(`${data.rodape}\n`);
 
 	// --- 7. AVANÇO DE PAPEL E CORTE ---

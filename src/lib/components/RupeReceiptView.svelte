@@ -450,36 +450,36 @@
 						<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
 						<span>Pré-visualização Térmica (58 mm)</span>
 					</div>
-					<span class="font-mono text-[11px] text-zinc-400">Fonte: Courier</span>
+					<span class="font-mono text-[11px] text-zinc-400">Fonte: Helvetica / Térmica Sans</span>
 				</div>
 
 				<!-- Paper Slip Card -->
 				<div
-					class="bg-white text-black font-mono shadow-2xl p-4 transition-all duration-300 select-text relative"
-					style="width: 260px; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.35;"
+					class="bg-white text-black shadow-2xl p-5 transition-all duration-300 select-text relative"
+					style="width: 290px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-variant-numeric: tabular-nums; font-size: 13px; line-height: 1.4;"
 				>
 					<!-- Top Perforation Simulation -->
 					<div class="absolute -top-1.5 left-0 right-0 h-1.5 bg-[radial-gradient(circle,_transparent_3px,_#ffffff_3px)] bg-[length:8px_8px]"></div>
 
 					<!-- Slip Content -->
-					<div class="space-y-2 text-zinc-950 font-normal">
+					<div class="space-y-3 text-zinc-950 font-normal">
 						<!-- BAI Header & Logo (Preto e Branco Puro) -->
-						<div class="text-center pt-2 pb-2">
+						<div class="text-center pt-1 pb-1">
 							<img
 								src={BAI_LOGO_BASE64}
 								alt="Logo BAI - Confiança no Futuro"
-								class="mx-auto w-36 object-contain grayscale contrast-200 mix-blend-multiply"
+								class="mx-auto w-40 object-contain grayscale contrast-200 mix-blend-multiply"
 							/>
 						</div>
 
-						<!-- Ministério das Finanças -->
-						<div class="text-center font-normal text-[10px] leading-tight pt-2">
+						<!-- Ministério das Finanças (Alinhado à Esquerda) -->
+						<div class="text-left font-normal text-[13px] leading-tight pt-1">
 							<div>{formData.entidadeLinha1}</div>
 							<div>{formData.entidadeLinha2}</div>
 						</div>
 
-						<!-- TPA Transaction Details -->
-						<div class="text-[10px] space-y-0.5 pt-1">
+						<!-- TPA Transaction Details (Alinhado à Esquerda) -->
+						<div class="text-left text-[12.5px] leading-snug space-y-0.5 pt-1">
 							<div>{formData.centralPagamento1}</div>
 							<div>{formData.centralPagamento2}</div>
 							<div>NIF: {formData.nif}</div>
@@ -488,29 +488,33 @@
 							<div>{formData.periodoTransacao}</div>
 							<div>TC: {formData.tc}</div>
 							<div>{formData.aid}</div>
-							<div class="text-center pt-0.5">{formData.tipoCartao}</div>
+							<div>{formData.tipoCartao}</div>
 							<div>Id.Estab.:{formData.idEstabelecimento}</div>
-							<div>{formData.tipoOperacao}</div>
 						</div>
 
-						<!-- RUPE Block -->
-						<div class="pt-2">
-							<div class="text-center font-normal text-[10px]">RUPE:</div>
-							<div class="text-[10px] font-normal font-mono tracking-tight break-all pt-1">
+						<!-- Tipo Operação -->
+						<div class="text-left font-normal text-[13px] pt-1">
+							{formData.tipoOperacao}
+						</div>
+
+						<!-- RUPE Block (Centralizado) -->
+						<div class="pt-3 text-center">
+							<div class="font-normal text-[13px] tracking-wide">RUPE</div>
+							<div class="text-[13px] font-normal tracking-wider pt-1.5 break-all">
 								{formData.rupe || '—'}
 							</div>
 						</div>
 
-						<!-- Montante Block -->
-						<div class="pt-2">
-							<div class="font-normal text-[10px]">Montante:</div>
-							<div class="text-[10px] font-normal font-mono pt-1">
-								{formData.valor}{formData.moeda}
+						<!-- Montante Block (Alinhado à Esquerda) -->
+						<div class="pt-2 text-left">
+							<div class="font-normal text-[13px]">Montante:</div>
+							<div class="text-[13.5px] font-normal pt-1.5 pl-1">
+								{formData.valor}  {formData.moeda}
 							</div>
 						</div>
 
-						<!-- Footer -->
-						<div class="text-center text-[10px] leading-tight pt-3 pb-2 space-y-0.5 font-normal">
+						<!-- Footer (Centralizado) -->
+						<div class="text-center text-[13px] leading-tight pt-4 pb-2 space-y-1 font-normal">
 							<div>{formData.tipoCopia}</div>
 							<div>{formData.rodape}</div>
 						</div>
