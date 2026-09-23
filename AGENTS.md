@@ -10,7 +10,7 @@ B2B sales-pipeline CRM for Angola. SvelteKit + Svelte 5 (runes), TypeScript stri
 - Build: `bun run build` / preview: `bun run preview`
 - No test runner, no linter/formatter config. Verify with `bun run check` + `bun run build`.
 
-## Architecture
+## Architectures
 
 - **Routing:** SvelteKit 3 file-based routing with `ssr = false`. Routes in `src/routes/(app)/`: `dashboard/`, `pipeline/`, `table/`, `map/`, `agenda/`, `templates/`, `propostas/`. Root `/` redirects to `/dashboard`. Navigation via `goto()` from `$app/navigation`. URL state via `page` from `$app/state` (NOT `$app/stores` — deprecated in SvelteKit 3).
 - **Layout:** `src/routes/+layout.svelte` contains Sidebar, Header, all modals (AddLead, Import, Purge, Reset, TemplateEditor, ProposalEditor, ProposalView), LeadDrawer, ToastContainer. Child routes render inside `{@render children()}`.
