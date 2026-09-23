@@ -39,6 +39,38 @@ function cleanPhoneNumber(phone?: string | null): { phone: string | null; phoneU
 	};
 }
 
+export const OPTIONS: RequestHandler = async () => {
+	return new Response(null, {
+		status: 204,
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key, api-key, X-Requested-With, Accept',
+			'Access-Control-Max-Age': '86400'
+		}
+	});
+};
+
+export const GET: RequestHandler = async () => {
+	return Response.json(
+		{
+			service: 'Amasoft CRM — Fact Flexi Leads API',
+			status: 'online',
+			version: 'v1',
+			methods: ['POST', 'GET', 'OPTIONS'],
+			description: 'Envie uma requisição POST com JSON no corpo e a chave no header "x-api-key" ou "Authorization: Bearer <token>" para cadastrar ou atualizar leads.',
+			documentation: 'https://crm.factflexi.com/API_DOCUMENTATION.md'
+		},
+		{
+			status: 200,
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+				'Content-Type': 'application/json'
+			}
+		}
+	);
+};
+
 export const POST: RequestHandler = async ({ request, url }) => {
 	// 1. Authenticate Request via API Key
 	if (!validateApiKey(request, url)) {
