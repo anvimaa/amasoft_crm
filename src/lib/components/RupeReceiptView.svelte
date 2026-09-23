@@ -12,6 +12,7 @@
 		convertImageToMonochrome,
 		BAI_LOGO_BASE64
 	} from '../utils/rupe-receipt';
+	import { generateRandomRupe } from '../utils/gtp-rupe';
 	import type { RupeReceiptData, PaperWidth } from '../types/receipt';
 	import { toast } from '../stores/toast.svelte';
 	import Icon from './Icon.svelte';
@@ -141,7 +142,7 @@
 
 <div class="space-y-6 pb-12">
 	<!-- Receipt Type Tabs -->
-	<div class="flex items-center gap-2 border-b border-zinc-800 pb-3">
+	<div class="flex items-center gap-2 border-b border-zinc-800 pb-3 flex-wrap">
 		<a
 			href="/talao"
 			class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
@@ -155,9 +156,17 @@
 			class="flex items-center gap-2 rounded-lg bg-zinc-800 px-3.5 py-2 text-xs font-semibold text-white border border-zinc-700/60 transition-colors shadow-sm"
 		>
 			<Icon name="money" class="w-4 h-4 text-amber-400" />
-			<span>Talão RUPE (BAI / Finanças)</span>
-			<span class="rounded bg-amber-950/80 text-amber-400 border border-amber-800/40 text-[10px] font-mono px-1 py-0.2">
-				Novo
+			<span>Talão RUPE Térmico (58 mm)</span>
+		</a>
+
+		<a
+			href="/gtp-rupe"
+			class="flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+		>
+			<Icon name="file-text" class="w-4 h-4 text-sky-400" />
+			<span>Guia de Liquidação RUPE (A4)</span>
+			<span class="rounded bg-sky-950/80 text-sky-300 border border-sky-800/40 text-[10px] font-mono px-1.5 py-0.2">
+				Oficial
 			</span>
 		</a>
 	</div>
@@ -204,9 +213,22 @@
 				<div class="space-y-4">
 					<!-- RUPE Input -->
 					<div>
-						<label for="rupe" class="block text-xs font-medium text-zinc-300 mb-1">
-							Número RUPE (20 dígitos) *
-						</label>
+						<div class="flex items-center justify-between mb-1">
+							<label for="rupe" class="block text-xs font-medium text-zinc-300">
+								Número RUPE (20 dígitos) *
+							</label>
+							<button
+								type="button"
+								onclick={() => {
+									formData.rupe = generateRandomRupe();
+									toast.info('RUPE Gerado', 'Nova referência RUPE de 20 dígitos criada.');
+								}}
+								class="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+							>
+								<Icon name="refresh" class="w-3 h-3" />
+								<span>Gerar RUPE</span>
+							</button>
+						</div>
 						<input
 							id="rupe"
 							type="text"

@@ -298,16 +298,16 @@
 				type="button"
 				onclick={() => navigateTo("talao")}
 				class="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-colors cursor-pointer {page
-					.url.pathname.startsWith('/talao') || page.url.pathname === '/recibo-termico'
+					.url.pathname.startsWith('/talao') || page.url.pathname === '/recibo-termico' || page.url.pathname === '/gtp-rupe'
 					? 'bg-zinc-800/90 text-white font-semibold'
 					: 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}"
 			>
 				<div class="flex items-center gap-2.5">
 					<Icon name="printer" class="w-4 h-4 text-emerald-400" />
-					<span>Talão Térmico (58mm)</span>
+					<span>Talões & RUPE</span>
 				</div>
 				<span class="rounded bg-emerald-950/60 px-1.5 py-0.2 text-[10px] font-mono text-emerald-400 border border-emerald-900/40">
-					58mm
+					58mm/A4
 				</span>
 			</button>
 		</div>
