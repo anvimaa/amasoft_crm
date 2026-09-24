@@ -18,17 +18,33 @@ class AuthStore {
 	async checkAuth(): Promise<boolean> {
 		this.isLoading = true;
 		try {
+			// If sessionStorage is empty (e.g. browser was closed and reopened), enforce logout
+			if (typeof window !== 'undefined' && !sessionStorage.getItem('amasoft_active_session')) {
+				await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+				this.user = null;
+				return false;
+			}
+
 			const res = await fetch('/api/auth/me');
 			if (res.ok) {
 				const data = await res.json();
 				if (data.authenticated && data.user) {
 					this.user = data.user;
+					if (typeof window !== 'undefined') {
+						sessionStorage.setItem('amasoft_active_session', 'true');
+					}
 					return true;
 				}
+			}
+			if (typeof window !== 'undefined') {
+				sessionStorage.removeItem('amasoft_active_session');
 			}
 			this.user = null;
 			return false;
 		} catch {
+			if (typeof window !== 'undefined') {
+				sessionStorage.removeItem('amasoft_active_session');
+			}
 			this.user = null;
 			return false;
 		} finally {
@@ -58,6 +74,9 @@ class AuthStore {
 			}
 
 			this.user = data.user;
+			if (typeof window !== 'undefined') {
+				sessionStorage.setItem('amasoft_active_session', 'true');
+			}
 			toast.success('Bem-vindo ao Amasoft CRM', `Sessão iniciada como ${this.user?.username}.`);
 			await goto('/dashboard');
 			return true;
@@ -74,6 +93,9 @@ class AuthStore {
 			await fetch('/api/auth/logout', { method: 'POST' });
 		} catch {
 			// Proceed anyway
+		}
+		if (typeof window !== 'undefined') {
+			sessionStorage.removeItem('amasoft_active_session');
 		}
 		this.user = null;
 		toast.info('Sessão Terminada', 'A sua sessão no CRM foi encerrada.');

@@ -88,18 +88,18 @@ export function verifySignedToken(token: string): { username: string; role: stri
 }
 
 /**
- * Sets the secure HTTP-only session cookie.
+ * Sets the secure HTTP-only session cookie (transient / memory-only, destroyed on browser close).
  */
 export function createSessionCookie(cookies: Cookies, user: AuthUser): void {
-	const exp = Date.now() + SESSION_MAX_AGE * 1000;
+	const exp = Date.now() + 24 * 60 * 60 * 1000; // safety max age
 	const token = createSignedToken({ username: user.username, role: user.role, exp });
 
+	// No maxAge or expires = Session Cookie (browser deletes immediately on exit)
 	cookies.set(COOKIE_NAME, token, {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: process.env.NODE_ENV === 'production',
-		maxAge: SESSION_MAX_AGE
+		secure: process.env.NODE_ENV === 'production'
 	});
 }
 
