@@ -21,7 +21,7 @@ export function createDefaultRupeData(): RupeReceiptData {
 		entidadeLinha2: 'FINANÇAS',
 		centralPagamento1: 'CENTRAL D PAG ESTADO',
 		centralPagamento2: 'CENTRAL D PAG ESTADO',
-		nif: '5000393533',
+		nif: '5000298735',
 		identTpa: '00313911',
 		dataHora: getRupeCurrentDateTime(),
 		periodoTransacao: 'Per: 274 Tr: 076 Mg076',
@@ -39,6 +39,35 @@ export function createDefaultRupeData(): RupeReceiptData {
 }
 
 export const DEFAULT_RUPE_DATA: RupeReceiptData = createDefaultRupeData();
+
+export const SUGGESTED_RECEIPT_VALUES = [
+	'2122,00',
+	'7398,00',
+	'14796,00',
+	'17600,00',
+	'26400,00',
+	'44000,00'
+];
+
+/**
+ * Formata valores especificamente para o Talão RUPE Térmico sem separadores de milhar (ex: 7398,00, 14795,00, 100232,00)
+ */
+export function formatRupeReceiptValue(val: string | number): string {
+	if (typeof val === 'number') {
+		return val.toFixed(2).replace('.', ',');
+	}
+	const clean = (val || '').trim();
+	if (!clean) return '0,00';
+	const withoutDots = clean.replace(/\./g, '');
+	if (withoutDots.includes(',')) {
+		const [intPart, decPart = '00'] = withoutDots.split(',');
+		const onlyInt = intPart.replace(/\D/g, '') || '0';
+		const onlyDec = (decPart.replace(/\D/g, '') + '00').slice(0, 2);
+		return `${onlyInt},${onlyDec}`;
+	}
+	const onlyDigits = withoutDots.replace(/\D/g, '') || '0';
+	return `${onlyDigits},00`;
+}
 
 /**
  * Strips accented characters for safe ESC/POS thermal printing.

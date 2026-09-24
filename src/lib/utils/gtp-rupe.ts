@@ -14,10 +14,11 @@ export const RUPE_FIXED_PREFIX = '6020126020';
 export const SUGGESTED_RUPE_VALUES = [
 	'2.122,00',
 	'7.398,00',
-	'14.796,00',
+	'14.795,00',
 	'17.600,00',
 	'26.400,00',
-	'44.000,00'
+	'44.000,00',
+	'100.232,00'
 ];
 
 export function generateRandomRupe(): string {
@@ -67,14 +68,37 @@ export async function generateRupeQrCodeDataUrl(rawRupe: string): Promise<string
 	}
 }
 
-export function formatAoaCurrency(val: number | string): string {
+/**
+ * Formata valores para a Guia de Liquidação GTP RUPE com separador de milhar por ponto e duas casas decimais com vírgula
+ * Ex: 26.400,00, 7.398,00, 14.795,00, 100.232,00
+ */
+export function formatGuiaRupeValue(val: number | string): string {
+	if (val === undefined || val === null) return '0,00';
 	if (typeof val === 'number') {
-		return val.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+		const parts = val.toFixed(2).split('.');
+		const integerWithDots = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+		return `${integerWithDots},${parts[1]}`;
 	}
-	const clean = val.replace(/\./g, '').replace(',', '.').trim();
-	const num = parseFloat(clean);
-	if (isNaN(num)) return '0,00';
-	return num.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	const str = String(val).trim();
+	if (!str) return '0,00';
+
+	// Remove pontos de milhar existentes
+	const withoutDots = str.replace(/\./g, '');
+	if (withoutDots.includes(',')) {
+		const [intPart, decPart = '00'] = withoutDots.split(',');
+		const onlyInt = intPart.replace(/\D/g, '') || '0';
+		const onlyDec = (decPart.replace(/\D/g, '') + '00').slice(0, 2);
+		const formattedInt = onlyInt.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+		return `${formattedInt},${onlyDec}`;
+	}
+
+	const onlyDigits = withoutDots.replace(/\D/g, '') || '0';
+	const formattedInt = onlyDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	return `${formattedInt},00`;
+}
+
+export function formatAoaCurrency(val: number | string): string {
+	return formatGuiaRupeValue(val);
 }
 
 export function getTodayDateStr(): string {

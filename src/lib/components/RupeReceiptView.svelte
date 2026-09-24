@@ -10,9 +10,11 @@
 		printRupeViaSerial,
 		convertImageToEscPosRaster,
 		convertImageToMonochrome,
-		BAI_LOGO_BASE64
+		BAI_LOGO_BASE64,
+		formatRupeReceiptValue,
+		SUGGESTED_RECEIPT_VALUES
 	} from '../utils/rupe-receipt';
-	import { generateRandomRupe, SUGGESTED_RUPE_VALUES, fetchLatestGtpRupeFromApi, formatRupe } from '../utils/gtp-rupe';
+	import { generateRandomRupe, fetchLatestGtpRupeFromApi, formatRupe } from '../utils/gtp-rupe';
 	import type { RupeReceiptData, PaperWidth } from '../types/receipt';
 	import { toast } from '../stores/toast.svelte';
 	import Icon from './Icon.svelte';
@@ -29,6 +31,10 @@
 
 	let formData = $state<RupeReceiptData>(createDefaultRupeData());
 
+	function handleValorBlur() {
+		formData.valor = formatRupeReceiptValue(formData.valor);
+	}
+
 	async function syncFromLatestGuia(silent: boolean = false) {
 		isSyncingWithGuia = true;
 		try {
@@ -39,14 +45,13 @@
 					formData.rupe = cleanRupe;
 				}
 				if (latestGtp.valorTotal) {
-					formData.valor = latestGtp.valorTotal;
+					formData.valor = formatRupeReceiptValue(latestGtp.valorTotal);
 				}
-				if (latestGtp.nif) {
-					formData.nif = latestGtp.nif;
-				}
+				// Keep standard entity NIF (5000298735) as required for the receipt header
+				formData.dataHora = getRupeCurrentDateTime();
 				syncedFromGuia = true;
 				if (!silent) {
-					toast.success('Sincronizado com a Guia', `RUPE ${formatRupe(cleanRupe)} e valor de ${latestGtp.valorTotal} Kz carregados.`);
+					toast.success('Sincronizado com a Guia', `RUPE ${formatRupe(cleanRupe)} e valor de ${formData.valor} Kz carregados.`);
 				}
 			} else if (!silent) {
 				toast.info('Sem Dados da Guia', 'Nenhuma Guia RUPE salva recentemente.');
@@ -324,6 +329,7 @@
 								id="valor"
 								type="text"
 								bind:value={formData.valor}
+								onblur={handleValorBlur}
 								placeholder="Ex: 7398,00"
 								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3.5 py-2.5 text-sm font-mono text-white placeholder-zinc-500 focus:border-amber-500 focus:outline-none"
 							/>
@@ -347,7 +353,7 @@
 							Valores Sugestivos:
 						</span>
 						<div class="flex items-center gap-1.5 flex-wrap">
-							{#each SUGGESTED_RUPE_VALUES as val}
+							{#each SUGGESTED_RECEIPT_VALUES as val}
 								<button
 									type="button"
 									onclick={() => {

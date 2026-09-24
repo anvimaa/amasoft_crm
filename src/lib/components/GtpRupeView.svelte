@@ -7,6 +7,7 @@
 		generateRandomRupe,
 		formatRupe,
 		generateRupeQrCodeDataUrl,
+		formatGuiaRupeValue,
 		SUGGESTED_RUPE_VALUES,
 		fetchGtpRupeTemplate,
 		renderGtpRupeSvg,
@@ -100,6 +101,15 @@
 			formData.valorExtenso = valorPorExtensoKwanzas(formData.valorTotal);
 		}
 		formData.valorReceita = formData.valorTotal;
+		updateRenderedSvg();
+	}
+
+	function handleValorBlur() {
+		formData.valorTotal = formatGuiaRupeValue(formData.valorTotal);
+		formData.valorReceita = formData.valorTotal;
+		if (autoExtenso) {
+			formData.valorExtenso = valorPorExtensoKwanzas(formData.valorTotal);
+		}
 		updateRenderedSvg();
 	}
 
@@ -518,6 +528,7 @@
 								type="text"
 								bind:value={formData.valorTotal}
 								oninput={handleValorChange}
+								onblur={handleValorBlur}
 								placeholder="Ex: 7.398,00"
 								class="w-full rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 text-sm font-mono text-white focus:border-amber-500 focus:outline-none"
 							/>
